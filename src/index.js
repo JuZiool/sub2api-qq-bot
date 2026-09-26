@@ -54,7 +54,11 @@ async function handleEvent(event) {
 
   if (!text.trim()) return;
 
-  const reply = await handleCommand(text, event.sender?.user_id);
+  const reply = await handleCommand(
+    text,
+    event.sender?.user_id,
+    { isPrivate: event.message_type === 'private' },
+  );
   if (!reply) return;
 
   if (event.message_type === 'group') {

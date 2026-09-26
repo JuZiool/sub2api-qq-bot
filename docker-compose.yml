@@ -25,6 +25,9 @@ services:
       - napcat
     env_file:
       - .env
+    volumes:
+      # 绑定凭证持久化（data/bindings.json）
+      - ./data/bot:/app/data
     environment:
       # compose 网络内直连 napcat 服务名
       - ONEBOT_WS_URL=ws://napcat:3001

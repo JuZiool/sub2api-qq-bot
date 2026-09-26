@@ -133,6 +133,7 @@ const commands = [
         `活跃用户：${fmtNumber(s.active_users)}`,
         `输入：${fmtTokens(input)} ｜ 输出：${fmtTokens(output)}`,
         `缓存：${fmtTokens(cacheCreation + cacheRead)}（创建 ${fmtTokens(cacheCreation)} / 命中 ${fmtTokens(cacheRead)}）`,
+        `总 Token：${fmtTokens(s.today_tokens ?? input + output + cacheCreation + cacheRead)}`,
         `缓存命中率：${cacheHitRate(input, cacheRead, cacheCreation)}%`,
       ].join('\n');
     },

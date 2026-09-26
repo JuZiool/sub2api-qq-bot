@@ -1,5 +1,5 @@
 import { config } from './config.js';
-import { getDashboardStats } from './sub2api.js';
+import { getDashboardStats, createUserClient } from './sub2api.js';
 import { getBinding, bind, unbind, getClient, removeClient, maskEmail } from './bindings.js';
 
 function fmtNumber(n) {

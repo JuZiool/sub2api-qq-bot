@@ -1,0 +1,33 @@
+services:
+  napcat:
+    image: mlikiowa/napcat-docker:latest
+    container_name: sub2api-qq-bot-napcat
+    restart: unless-stopped
+    environment:
+      - ACCOUNT=${NAPCAT_QQ:-}
+      - NAPCAT_GID=0
+      - NAPCAT_UID=0
+    ports:
+      # WebUI，用于扫码登录与配置（首次登录用）
+      - "6099:6099"
+    volumes:
+      # 持久化 QQ 登录态，避免重建容器重新扫码
+      - ./data/napcat:/app/napcat
+    command:
+      - -q
+      - ${NAPCAT_QQ:-}
+
+  bot:
+    build: .
+    container_name: sub2api-qq-bot
+    restart: unless-stopped
+    depends_on:
+      - napcat
+    env_file:
+      - .env
+    environment:
+      # compose 网络内直连 napcat 服务名
+      - ONEBOT_WS_URL=ws://napcat:3001
+    extra_hosts:
+      # 容器内访问宿主机 sub2api（8080）
+      - "host.docker.internal:host-gateway"

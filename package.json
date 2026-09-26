@@ -1,0 +1,17 @@
+{
+  "name": "sub2api-qq-bot",
+  "version": "0.1.0",
+  "description": "QQ 群机器人：通过 OneBot v11 对接 NapCat，查询 sub2api 管理数据",
+  "type": "module",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "ws": "^8.18.0"
+  }
+}

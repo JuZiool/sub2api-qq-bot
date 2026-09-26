@@ -94,7 +94,10 @@ const commands = [
     run: async ({ senderQQ }) => {
       const client = getClient(senderQQ);
       if (!client) return '未绑定账号，请私聊我发送：/绑定 邮箱 密码';
-      const res = await client.request('/api/v1/usage/dashboard/stats');
+      const [res, profile] = await Promise.all([
+        client.request('/api/v1/usage/dashboard/stats'),
+        client.request('/api/v1/user/profile'),
+      ]);
       // 兼容新旧结构：stats 包裹或直接平铺
       const s = res?.stats ?? res ?? {};
       const input = Number(s.today_input_tokens ?? 0);
@@ -109,6 +112,7 @@ const commands = [
         `缓存命中率：${cacheHitRate(input, cacheRead, cacheCreation)}%`,
         `今日费用：$${Number(s.today_actual_cost ?? 0).toFixed(4)}`,
         `累计费用：$${Number(s.total_actual_cost ?? 0).toFixed(4)}`,
+        `余额：$${Number(profile?.balance ?? 0).toFixed(4)}`,
       ].join('\n');
     },
   },

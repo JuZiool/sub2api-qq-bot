@@ -23,6 +23,7 @@ cp .env.example .env
 
 ```env
 NAPCAT_DATA_DIR=/opt/sub2api-qq-bot-data/napcat
+NAPCAT_CONFIG_DIR=/opt/sub2api-qq-bot-data/napcat/config
 QQ_DATA_DIR=/opt/sub2api-qq-bot-data/qq
 BOT_DATA_DIR=/opt/sub2api-qq-bot-data/bot
 ```
@@ -33,7 +34,7 @@ BOT_DATA_DIR=/opt/sub2api-qq-bot-data/bot
 mkdir -p /opt/sub2api-qq-bot-data/{napcat,qq,bot}
 ```
 
-这三个目录分别保存 NapCat 运行数据、QQNT 登录态和机器人绑定数据。重新部署时不要删除它们。
+这四个挂载路径分别保存 NapCat 运行数据、NapCat 配置、QQNT 登录态和机器人绑定数据。重新部署时不要删除它们。
 
 同时在 `.env` 中设置 `NAPCAT_QQ`（机器人 QQ 号，供 compose 传递给 NapCat）：
 

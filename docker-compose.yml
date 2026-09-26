@@ -14,6 +14,8 @@ services:
       # NapCat 完整运行目录：配置、插件、缓存及运行数据均保存到宿主机
       # 建议在 .env 中改为项目目录之外的绝对路径，避免重新拉取项目时丢失
       - ${NAPCAT_DATA_DIR:-./data/napcat}:/app/napcat
+      # 镜像声明的匿名卷，显式改为宿主机挂载，避免配置随容器重建丢失
+      - ${NAPCAT_CONFIG_DIR:-./data/napcat/config}:/app/napcat/config
       # QQNT 用户数据（登录态实际存放处，不挂载会掉登录）
       - ${QQ_DATA_DIR:-./data/qq}:/app/.config/QQ
     command:

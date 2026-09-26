@@ -109,9 +109,10 @@ const commands = [
         `请求：${fmtNumber(s.today_requests ?? 0)}`,
         `输入：${fmtTokens(input)} ｜ 输出：${fmtTokens(output)}`,
         `缓存：${fmtTokens(cacheCreation + cacheRead)}（创建 ${fmtTokens(cacheCreation)} / 命中 ${fmtTokens(cacheRead)}）`,
-        `总 Token：${fmtTokens(s.today_tokens ?? input + output + cacheCreation + cacheRead)}`,
+        `今日 Token：${fmtTokens(s.today_tokens ?? input + output + cacheCreation + cacheRead)}`,
         `缓存命中率：${cacheHitRate(input, cacheRead, cacheCreation)}%`,
         `今日费用：$${Number(s.today_actual_cost ?? 0).toFixed(4)}`,
+        `累计 Token：${fmtTokens(s.total_tokens ?? 0)}`,
         `累计费用：$${Number(s.total_actual_cost ?? 0).toFixed(4)}`,
         `余额：$${Number(profile?.balance ?? 0).toFixed(4)}`,
       ].join('\n');

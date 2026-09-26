@@ -19,6 +19,22 @@ cp .env.example .env
 # 编辑 .env：填写管理员邮箱、密码、允许查询的 QQ 号
 ```
 
+建议把数据目录放在项目目录之外，避免重新拉取或替换项目代码时丢失 QQ 登录态：
+
+```env
+NAPCAT_DATA_DIR=/opt/sub2api-qq-bot-data/napcat
+QQ_DATA_DIR=/opt/sub2api-qq-bot-data/qq
+BOT_DATA_DIR=/opt/sub2api-qq-bot-data/bot
+```
+
+首次部署前创建目录：
+
+```bash
+mkdir -p /opt/sub2api-qq-bot-data/{napcat,qq,bot}
+```
+
+这三个目录分别保存 NapCat 运行数据、QQNT 登录态和机器人绑定数据。重新部署时不要删除它们。
+
 同时在 `.env` 中设置 `NAPCAT_QQ`（机器人 QQ 号，供 compose 传递给 NapCat）：
 
 ```yaml

@@ -11,10 +11,11 @@ services:
       # WebUI，用于扫码登录与配置（首次登录用）
       - "6099:6099"
     volumes:
-      # 持久化 QQ 登录态，避免重建容器重新扫码
-      - ./data/napcat:/app/napcat
+      # NapCat 完整运行目录：配置、插件、缓存及运行数据均保存到宿主机
+      # 建议在 .env 中改为项目目录之外的绝对路径，避免重新拉取项目时丢失
+      - ${NAPCAT_DATA_DIR:-./data/napcat}:/app/napcat
       # QQNT 用户数据（登录态实际存放处，不挂载会掉登录）
-      - ./data/qq:/app/.config/QQ
+      - ${QQ_DATA_DIR:-./data/qq}:/app/.config/QQ
     command:
       - -q
       - ${NAPCAT_QQ:-}
@@ -29,7 +30,7 @@ services:
       - .env
     volumes:
       # 绑定凭证持久化（data/bindings.json）
-      - ./data/bot:/app/data
+      - ${BOT_DATA_DIR:-./data/bot}:/app/data
     environment:
       # compose 网络内直连 napcat 服务名
       - ONEBOT_WS_URL=ws://napcat:3001

@@ -13,10 +13,6 @@ function fmtTokens(n) {
   return String(n);
 }
 
-function fmtCost(n) {
-  return `$${Number(n ?? 0).toFixed(4)}`;
-}
-
 export function isAdmin(qq) {
   const { adminQQList } = config.bot;
   if (adminQQList.length === 0) return true;
@@ -32,7 +28,7 @@ const commands = [
       [
         'sub2api 查询机器人',
         '指令列表：',
-        '/状态 - 查看系统运行概况（管理员）',
+        '/状态 - 查看今日用量概况（管理员）',
       ].join('\n'),
   },
 
@@ -43,19 +39,19 @@ const commands = [
       const res = await getDashboardStats();
       // 兼容两种响应结构：新版包裹在 stats 里，旧版直接平铺在 data 中
       const s = res?.stats ?? res ?? {};
+      const input = Number(s.today_input_tokens ?? 0);
+      const output = Number(s.today_output_tokens ?? 0);
+      const cacheCreation = Number(s.today_cache_creation_tokens ?? 0);
+      const cacheRead = Number(s.today_cache_read_tokens ?? 0);
+      // 与 orange 前端口径一致：cache_read / (input + cache_read + cache_creation)
+      const promptTotal = input + cacheRead + cacheCreation;
+      const hitRate = promptTotal > 0 ? ((cacheRead / promptTotal) * 100).toFixed(1) : '0.0';
       return [
-        '📊 系统状态',
-        '—— 用户 ——',
-        `总用户：${fmtNumber(s.total_users)}（今日新增 ${fmtNumber(s.today_new_users)}）`,
-        `今日活跃：${fmtNumber(s.active_users)}`,
-        '—— 账号 ——',
-        `总账号：${fmtNumber(s.total_accounts)}｜正常 ${fmtNumber(s.normal_accounts)}｜限流 ${fmtNumber(s.ratelimit_accounts)}｜异常 ${fmtNumber(s.error_accounts)}`,
-        '—— 今日用量 ——',
-        `请求：${fmtNumber(s.today_requests)}｜RPM ${fmtNumber(s.rpm)}｜TPM ${fmtNumber(s.tpm)}`,
-        `Token：${fmtTokens(s.today_tokens)}（输入 ${fmtTokens(s.today_input_tokens)} / 输出 ${fmtTokens(s.today_output_tokens)}）`,
-        `费用：${fmtCost(s.today_actual_cost)}（实际扣除）`,
-        '—— 累计 ——',
-        `请求：${fmtNumber(s.total_requests)}｜Token：${fmtTokens(s.total_tokens)}｜费用：${fmtCost(s.total_actual_cost)}`,
+        '📊 今日状态',
+        `活跃用户：${fmtNumber(s.active_users)}`,
+        `输入：${fmtTokens(input)} ｜ 输出：${fmtTokens(output)}`,
+        `缓存：${fmtTokens(cacheCreation + cacheRead)}（创建 ${fmtTokens(cacheCreation)} / 命中 ${fmtTokens(cacheRead)}）`,
+        `缓存命中率：${hitRate}%`,
       ].join('\n');
     },
   },

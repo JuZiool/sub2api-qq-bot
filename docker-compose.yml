@@ -13,6 +13,8 @@ services:
     volumes:
       # 持久化 QQ 登录态，避免重建容器重新扫码
       - ./data/napcat:/app/napcat
+      # QQNT 用户数据（登录态实际存放处，不挂载会掉登录）
+      - ./data/qq:/app/.config/QQ
     command:
       - -q
       - ${NAPCAT_QQ:-}

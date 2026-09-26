@@ -39,7 +39,7 @@ const commands = [
         '/解绑 - 解除绑定（仅私聊）',
         '/我的 - 查看绑定状态',
         '/用量 - 查询我的今日用量（需绑定）',
-        '/状态 - 系统概况（管理员）',
+        '/状态 - 系统概况（今日全站用量）',
       ].join('\n'),
   },
 
@@ -119,7 +119,7 @@ const commands = [
 
   {
     match: (name) => name === '状态' || name === 'status',
-    adminOnly: true,
+    adminOnly: false,
     run: async () => {
       const res = await getDashboardStats();
       // 兼容两种响应结构：新版包裹在 stats 里，旧版直接平铺在 data 中

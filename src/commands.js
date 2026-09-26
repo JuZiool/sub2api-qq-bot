@@ -41,7 +41,8 @@ const commands = [
     adminOnly: true,
     run: async () => {
       const res = await getDashboardStats();
-      const s = res?.stats ?? {};
+      // 兼容两种响应结构：新版包裹在 stats 里，旧版直接平铺在 data 中
+      const s = res?.stats ?? res ?? {};
       return [
         '📊 系统状态',
         '—— 用户 ——',

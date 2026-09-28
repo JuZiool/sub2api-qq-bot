@@ -1,7 +1,7 @@
 import { config } from './config.js';
-import { getDashboardStats, getDashboardModelStats, createUserClient } from './sub2api.js';
+import { getDashboardStats, getDashboardModelStats, createUserClient, getChannelMonitorModels, getRecentUsageLogs } from './sub2api.js';
 import { getBinding, bind, unbind, getClient, removeClient, maskEmail } from './bindings.js';
-import { renderUsageCard, normalizedModels } from './usage-card.js';
+import { renderUsageCard, normalizedModels, renderChannelCard, fmtSeconds } from './usage-card.js';
 
 function fmtNumber(n) {
   return Number(n ?? 0).toLocaleString('zh-CN');
@@ -24,6 +24,21 @@ function getShanghaiDate(date = new Date()) {
   }).formatToParts(date);
   const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
   return `${values.year}-${values.month}-${values.day}`;
+}
+
+function shortenModel(value, max = 24) {
+  const chars = [...String(value ?? '')];
+  return chars.length > max ? `${chars.slice(0, max - 1).join('')}…` : chars.join('');
+}
+
+function formatClockTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+  }).formatToParts(date);
+  const v = Object.fromEntries(parts.filter(({ type }) => type !== 'literal').map(({ type, value }) => [type, value]));
+  return `${v.hour}:${v.minute}:${v.second}`;
 }
 
 function formatModelRanking(response) {
@@ -78,6 +93,7 @@ const commands = [
         '/我的 - 查看绑定状态',
         '/用量 - 查询我的今日用量（需绑定）',
         '/状态 - 系统概况（今日全站用量）',
+        '/渠道状态 - 近 24h 模型状态与最近调用',
       ].join('\n'),
   },
 
@@ -247,8 +263,108 @@ const commands = [
       }
     },
   },
-];
+  {
+    match: (name) => name === '渠道状态' || name === 'channel',
+    adminOnly: false,
+    run: async () => {
+      const [modelsResult, usageResult] = await Promise.allSettled([
+        getChannelMonitorModels('24h'),
+        getRecentUsageLogs(10),
+      ]);
+      if (modelsResult.status === 'rejected') {
+        const msg = String(modelsResult.reason?.message || '');
+        if (/CHANNEL_MONITOR|channel monitor/i.test(msg)) {
+          throw new Error('渠道监控未开启（需在后端启用并设置 v2 模式）');
+        }
+        throw modelsResult.reason;
+      }
 
+      const items = Array.isArray(modelsResult.value?.items) ? modelsResult.value.items : [];
+      const models = items
+        .map((item) => {
+          const m = item.metrics || {};
+          return {
+            name: item.model || '未知模型',
+            requests: Number(m.request_count) || 0,
+            successRate: Number(m.success_rate) || 0,
+            firstTokenMs: m.ttft?.avg_ms ?? null,
+            hitRate: Number(m.cache_rate) || 0,
+          };
+        })
+        .sort((a, b) => b.requests - a.requests || a.name.localeCompare(b.name, 'zh-CN'));
+
+      const totalRequests = models.reduce((sum, m) => sum + m.requests, 0);
+      const overallHitRate = totalRequests > 0
+        ? (models.reduce((sum, m) => sum + m.hitRate * m.requests, 0) / totalRequests) * 100
+        : 0;
+
+      const logs = usageResult.status === 'fulfilled' && Array.isArray(usageResult.value?.items)
+        ? usageResult.value.items.slice(0, 10)
+        : [];
+
+      const modelTable = models.map((m) => [
+        shortenModel(m.name),
+        fmtNumber(m.requests),
+        `${(m.successRate * 100).toFixed(1)}%`,
+        fmtSeconds(m.firstTokenMs),
+        `${(m.hitRate * 100).toFixed(1)}%`,
+      ]);
+      const recentTable = logs.map((log) => [
+        formatClockTime(log.created_at),
+        shortenModel(log.model),
+        fmtSeconds(log.first_token_ms),
+        fmtTokens(log.cache_read_tokens ?? 0),
+        `${fmtTokens(log.input_tokens ?? 0)}/${fmtTokens(log.output_tokens ?? 0)}`,
+      ]);
+
+      const fallbackText = [
+        '📡 渠道状态（近 24 小时）',
+        `调用模型：${models.length} 个 ｜ 请求总数：${fmtNumber(totalRequests)} ｜ 整体缓存命中率：${overallHitRate.toFixed(1)}%`,
+        '',
+        '📊 模型状态',
+        ...models.map((m) => `- ${m.name}｜请求 ${fmtNumber(m.requests)}｜成功率 ${(m.successRate * 100).toFixed(1)}%｜平均首字 ${fmtSeconds(m.firstTokenMs)}｜缓存 ${(m.hitRate * 100).toFixed(1)}%`),
+        '',
+        '📈 最近十次调用',
+        ...logs.map((log) => `- ${formatClockTime(log.created_at)}｜${log.model}｜首字 ${fmtSeconds(log.first_token_ms)}｜缓存读 ${fmtTokens(log.cache_read_tokens ?? 0)}｜输入/输出 ${fmtTokens(log.input_tokens ?? 0)}/${fmtTokens(log.output_tokens ?? 0)}`),
+      ].join('\n');
+
+      try {
+        const image = await renderChannelCard({
+          title: '渠道状态',
+          summaryMetrics: [
+            { label: '调用模型', value: `${models.length} 个` },
+            { label: '请求总数', value: fmtNumber(totalRequests) },
+            { label: '缓存命中率', value: `${overallHitRate.toFixed(1)}%` },
+          ],
+          modelColumns: [
+            { label: '模型', ratio: 0.40 },
+            { label: '请求', ratio: 0.16, align: 'end' },
+            { label: '成功率', ratio: 0.16, align: 'end' },
+            { label: '平均首字', ratio: 0.14, align: 'end' },
+            { label: '缓存命中率', ratio: 0.14, align: 'end', color: '#29964a', weight: 750 },
+          ],
+          modelRows: modelTable,
+          modelEmptyText: '近 24 小时暂无模型调用',
+          recentColumns: [
+            { label: '时间', ratio: 0.20 },
+            { label: '模型', ratio: 0.34 },
+            { label: '首字', ratio: 0.14, align: 'end' },
+            { label: '缓存读', ratio: 0.16, align: 'end' },
+            { label: '输入/输出', ratio: 0.16, align: 'end' },
+          ],
+          recentRows: recentTable,
+          note: modelsResult.value?.coverage
+            ? `数据统计窗口：近 24 小时（聚合更新至 ${formatClockTime(modelsResult.value.coverage.data_through)}）`
+            : '',
+        });
+        return { type: 'image', data: { file: `base64://${image.toString('base64')}` }, fallbackText };
+      } catch (err) {
+        console.error('[channel-card] 图片生成失败，回退文本：', err.message);
+        return fallbackText;
+      }
+    },
+  },
+];
 export async function handleCommand(text, senderQQ, ctx = {}) {
   const { prefix } = config.bot;
   const trimmed = text.trim();

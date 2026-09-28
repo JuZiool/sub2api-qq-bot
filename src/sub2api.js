@@ -94,3 +94,19 @@ export function getDashboardModelStats(startDate, endDate) {
   const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
   return adminClient.request(`/api/v1/admin/dashboard/models?${params.toString()}`);
 }
+
+// 渠道监控 V2：模型维度 24h 聚合（平均首字、缓存命中率等）。需要后端已开启渠道监控且模式为 v2。
+export function getChannelMonitorModels(range = '24h') {
+  const params = new URLSearchParams({ range });
+  return adminClient.request(`/api/v1/admin/channel-monitor-v2/models?${params.toString()}`);
+}
+
+// 最近调用明细：按创建时间倒序取前 limit 条。
+export function getRecentUsageLogs(limit = 10) {
+  const params = new URLSearchParams({
+    sort_by: 'created_at',
+    sort_order: 'desc',
+    page_size: String(limit),
+  });
+  return adminClient.request(`/api/v1/admin/usage?${params.toString()}`);
+}

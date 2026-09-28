@@ -172,7 +172,7 @@ const commands = [
       ].join('\n');
       try {
         const image = await renderUsageCard({
-          title: '我的用量', heroLabel: '总 Token',
+          title: '今日用量', heroLabel: '总 Token',
           heroFootnote: `请求数  ${fmtNumber(s.today_requests ?? 0)}`, heroRateFootnote: '今日累计',
           totalTokens: todayTokens, overallHitRate: hitRate,
           metrics: [

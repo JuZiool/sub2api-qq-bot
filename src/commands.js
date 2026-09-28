@@ -1,6 +1,7 @@
 import { config } from './config.js';
 import { getDashboardStats, getDashboardModelStats, createUserClient } from './sub2api.js';
 import { getBinding, bind, unbind, getClient, removeClient, maskEmail } from './bindings.js';
+import { renderUsageCard, normalizedModels } from './usage-card.js';
 
 function fmtNumber(n) {
   return Number(n ?? 0).toLocaleString('zh-CN');
@@ -158,7 +159,7 @@ const commands = [
         : '模型排行暂时不可用';
       const todayTokens = fmtTokens(s.today_tokens ?? input + output + cacheCreation + cacheRead);
       const hitRate = cacheHitRate(input, cacheRead, cacheCreation);
-      return [
+      const fallbackText = [
         '📈 我的今日用量',
         `请求：${fmtNumber(s.today_requests ?? 0)}`,
         `输入：${fmtTokens(input)} ｜ 输出：${fmtTokens(output)}`,
@@ -168,10 +169,31 @@ const commands = [
         `累计 Token：${fmtTokens(s.total_tokens ?? 0)}`,
         `累计费用：$${Number(s.total_actual_cost ?? 0).toFixed(4)}`,
         `余额：$${Number(profile?.balance ?? 0).toFixed(4)}`,
-        '',
-        '📈 我的今日模型用量排行',
-        ranking,
+        '', '📈 我的今日模型用量排行', ranking,
       ].join('\n');
+      try {
+        const image = await renderUsageCard({
+          title: '我的今日用量', date: today, heroLabel: '今日 Token',
+          totalTokens: todayTokens, overallHitRate: hitRate,
+          metrics: [
+            { label: '请求', value: fmtNumber(s.today_requests ?? 0) },
+            { label: '输入 Token', value: fmtTokens(input) },
+            { label: '输出 Token', value: fmtTokens(output) },
+            { label: '缓存创建', value: fmtTokens(cacheCreation) },
+            { label: '缓存命中', value: fmtTokens(cacheRead) },
+            { label: '今日费用', value: `$${Number(s.today_actual_cost ?? 0).toFixed(4)}` },
+            { label: '累计 Token', value: fmtTokens(s.total_tokens ?? 0) },
+            { label: '累计费用', value: `$${Number(s.total_actual_cost ?? 0).toFixed(4)}` },
+            { label: '账户余额', value: `$${Number(profile?.balance ?? 0).toFixed(4)}` },
+          ],
+          models: modelsResult.status === 'fulfilled' ? normalizedModels(modelsResult.value) : [],
+          rankingStatus: modelsResult.status === 'fulfilled' ? '' : '模型排行暂时不可用',
+        });
+        return { type: 'image', data: { file: `base64://${image.toString('base64')}` }, fallbackText };
+      } catch (err) {
+        console.error('[usage-card] 图片生成失败，回退文本：', err.message);
+        return fallbackText;
+      }
     },
   },
 
@@ -198,16 +220,33 @@ const commands = [
         : '模型排行暂时不可用';
       const totalTokens = fmtTokens(s.today_tokens ?? input + output + cacheCreation + cacheRead);
       const overallHitRate = cacheHitRate(input, cacheRead, cacheCreation);
-      return [
+      const fallbackText = [
         '📊 今日状态',
         `活跃用户：${fmtNumber(s.active_users)}`,
         `输入：${fmtTokens(input)} ｜ 输出：${fmtTokens(output)}`,
         `缓存：${fmtTokens(cacheCreation + cacheRead)}（创建 ${fmtTokens(cacheCreation)} / 命中 ${fmtTokens(cacheRead)}）`,
         `总 Token：${totalTokens} ｜ 缓存命中率：${overallHitRate}%`,
-        '',
-        '📈 今日模型用量排行',
-        ranking,
+        '', '📈 今日模型用量排行', ranking,
       ].join('\n');
+      try {
+        const image = await renderUsageCard({
+          title: '系统今日状态', date: today, heroLabel: '全站今日 Token',
+          totalTokens, overallHitRate,
+          metrics: [
+            { label: '活跃用户', value: fmtNumber(s.active_users) },
+            { label: '输入 Token', value: fmtTokens(input) },
+            { label: '输出 Token', value: fmtTokens(output) },
+            { label: '缓存创建', value: fmtTokens(cacheCreation) },
+            { label: '缓存命中', value: fmtTokens(cacheRead) },
+          ],
+          models: modelsResult.status === 'fulfilled' ? normalizedModels(modelsResult.value) : [],
+          rankingStatus: modelsResult.status === 'fulfilled' ? '' : '模型排行暂时不可用',
+        });
+        return { type: 'image', data: { file: `base64://${image.toString('base64')}` }, fallbackText };
+      } catch (err) {
+        console.error('[status-card] 图片生成失败，回退文本：', err.message);
+        return fallbackText;
+      }
     },
   },
 ];

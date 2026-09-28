@@ -26,20 +26,30 @@ function callAction(action, params = {}, timeoutMs = 15000) {
   });
 }
 
-async function sendGroupMessage(groupId, text) {
-  await callAction('send_group_msg', {
-    group_id: groupId,
-    message: [{ type: 'text', data: { text } }],
-  });
+function messageSegments(reply) {
+  if (reply && typeof reply === 'object' && reply.type === 'image') {
+    return [{ type: 'image', data: reply.data }];
+  }
+  return [{ type: 'text', data: { text: String(reply) } }];
 }
 
-async function sendPrivateMessage(userId, text) {
-  await callAction('send_private_msg', {
-    user_id: userId,
-    message: [{ type: 'text', data: { text } }],
-  });
+async function sendReply(action, target, reply) {
+  try {
+    await callAction(action, { ...target, message: messageSegments(reply) });
+  } catch (err) {
+    if (!reply || typeof reply !== 'object' || !reply.fallbackText) throw err;
+    console.error('[onebot] 图片发送失败，回退文本：', err.message);
+    await callAction(action, { ...target, message: messageSegments(reply.fallbackText) });
+  }
 }
 
+async function sendGroupMessage(groupId, reply) {
+  await sendReply('send_group_msg', { group_id: groupId }, reply);
+}
+
+async function sendPrivateMessage(userId, reply) {
+  await sendReply('send_private_msg', { user_id: userId }, reply);
+}
 // 处理 OneBot 事件
 async function handleEvent(event) {
   if (event.post_type !== 'message') return;

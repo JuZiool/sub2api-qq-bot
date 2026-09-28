@@ -9,7 +9,8 @@ function Protect-BotText {
     foreach ($value in $script:SensitiveValues) {
         if (-not [string]::IsNullOrEmpty($value)) { $Text = $Text.Replace($value, '[redacted]') }
     }
-    return ($Text -replace '(?i)(token=)[^\s&"<>]+', '$1[redacted]')
+    $Text = $Text -replace '(?i)(token=)[^\s&"<>]+', '$1[redacted]'
+    return ($Text -replace 'https://txz\.qq\.com/p\?[^\s]+', '[QQ login QR URL redacted]')
 }
 
 function Invoke-BotWslc {

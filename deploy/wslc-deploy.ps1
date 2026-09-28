@@ -57,16 +57,16 @@ try {
         return
     }
     if ($Action -eq 'Status') {
-        foreach ($key in @('napcat','bot')) {
-            $obj = $objects[$key]
-            [pscustomobject]@{ Service=$key; Name=$names[$key]; State=if ($null -eq $obj) {'not-deployed'} else {$obj.State.Status} }
-        }
         $webui = $false
         try { $webui = (Invoke-WebRequest 'http://127.0.0.1:6099' -TimeoutSec 5).StatusCode -eq 200 } catch {}
-        if ($null -ne $objects.bot -and $objects.bot.State.Running) {
-            $checks = Get-BotChecks $names.bot
-            [pscustomobject]@{ WebUI=$webui; Sub2ApiHealth=$checks.api; OneBotConnected=$checks.onebot; QqLoggedIn=$checks.qqLoggedIn }
-        } else { [pscustomobject]@{WebUI=$webui;Sub2ApiHealth=$false;OneBotConnected=$false;QqLoggedIn=$false} }
+        $checks = [pscustomobject]@{api=$false;onebot=$false;qqLoggedIn=$false}
+        if ($null -ne $objects.bot -and $objects.bot.State.Running) { $checks = Get-BotChecks $names.bot }
+        # 单一状态对象避免 PowerShell 表格格式化吞掉不同对象的检查字段。
+        [pscustomobject]@{
+            NapcatState=if ($null -eq $objects.napcat) {'not-deployed'} else {$objects.napcat.State.Status}
+            BotState=if ($null -eq $objects.bot) {'not-deployed'} else {$objects.bot.State.Status}
+            WebUI=$webui; Sub2ApiHealth=$checks.api; OneBotConnected=$checks.onebot; QqLoggedIn=$checks.qqLoggedIn
+        }
         return
     }
     Get-Command git -ErrorAction Stop | Out-Null

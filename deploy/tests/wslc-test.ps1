@@ -14,15 +14,16 @@ function Assert-Throws([scriptblock]$Code, [string]$Pattern, [string]$Message) {
 }
 $temp = Join-Path ([IO.Path]::GetTempPath()) ('qq-bot-wslc-test-' + [guid]::NewGuid().ToString('N'))
 [IO.Directory]::CreateDirectory($temp) | Out-Null
-$script:mockObject = $null; $script:mockError = ''; $script:calls = [Collections.Generic.List[string]]::new()
+$global:QqBotWslcTestObject = $null; $global:QqBotWslcTestError = ''; $global:QqBotWslcTestCalls = [Collections.Generic.List[string]]::new()
 function wslc {
-    $script:calls.Add(($args -join '|'))
+    $global:QqBotWslcTestCalls.Add(($args -join '|'))
     if ($args[0] -eq 'inspect' -or ($args[0] -eq 'volume' -and $args[1] -eq 'inspect')) {
-        if ($script:mockError) { $global:LASTEXITCODE=1; Write-Output $script:mockError; return }
-        if ($null -eq $script:mockObject) { $global:LASTEXITCODE=1; Write-Output '找不到对象'; return }
-        $global:LASTEXITCODE=0; Write-Output (ConvertTo-Json -InputObject @($script:mockObject) -Depth 10 -Compress); return
+        if ($global:QqBotWslcTestError) { $global:LASTEXITCODE=1; Write-Output $global:QqBotWslcTestError; return }
+        if ($null -eq $global:QqBotWslcTestObject) { $global:LASTEXITCODE=1; Write-Output '找不到对象'; return }
+        $global:LASTEXITCODE=0; Write-Output (ConvertTo-Json -InputObject @($global:QqBotWslcTestObject) -Depth 10 -Compress); return
     }
     $global:LASTEXITCODE=0
+    if ($args[0] -eq 'exec') { Write-Output '{"api":true,"onebot":true,"qqLoggedIn":true}' }
 }
 try {
     $envPath = Join-Path $temp 'test.env'
@@ -42,38 +43,52 @@ try {
     Assert-Test $true '允许自有资源'
     $volume=[pscustomobject]@{Labels=[pscustomobject]@{'io.sub2api.qq-bot.stack'='other'}}
     Assert-Throws {Assert-BotOwner $volume volume foreign} '不属于' '数据卷归属保护'
-    $script:mockError='WSLC service unavailable'
+    $global:QqBotWslcTestError='WSLC service unavailable'
     Assert-Throws {Get-BotObject container x} '无法检查' '服务错误不得误判为资源不存在'
-    $script:mockError=''; $script:mockObject=$null
+    $global:QqBotWslcTestError=''; $global:QqBotWslcTestObject=$null
     Assert-Test ($null -eq (Get-BotObject container x)) '明确不存在的对象返回空值'
-    $script:mockObject=$foreign; $script:calls.Clear()
+    $global:QqBotWslcTestObject=$foreign; $global:QqBotWslcTestCalls.Clear()
     Write-BotEnv $envPath @{A='one'}
     Assert-Throws {Ensure-BotContainer 'foreign' @('image') $envPath} '不属于' '重部署拒绝覆盖外部容器'
-    Assert-Test (@($script:calls | Where-Object {$_ -match '^(stop|remove|run)\|'}).Count -eq 0) '拒绝后没有停止或删除调用'
+    Assert-Test (@($global:QqBotWslcTestCalls | Where-Object {$_ -match '^(stop|remove|run)\|'}).Count -eq 0) '拒绝后没有停止或删除调用'
     $hash=Get-BotContainerHash @('image') $envPath
     $owned.Config.Labels | Add-Member -NotePropertyName 'io.sub2api.qq-bot.config' -NotePropertyValue $hash
-    $script:mockObject=$owned; $script:calls.Clear()
+    $global:QqBotWslcTestObject=$owned; $global:QqBotWslcTestCalls.Clear()
     Ensure-BotContainer 'owned' @('image') $envPath
-    Assert-Test (@($script:calls | Where-Object {$_ -match '^(stop|remove|run|start)\|'}).Count -eq 0) '同配置运行中重部署不重建'
-    $owned.State.Running=$false; $script:calls.Clear()
+    Assert-Test (@($global:QqBotWslcTestCalls | Where-Object {$_ -match '^(stop|remove|run|start)\|'}).Count -eq 0) '同配置运行中重部署不重建'
+    $owned.State.Running=$false; $global:QqBotWslcTestCalls.Clear()
     Ensure-BotContainer 'owned' @('image') $envPath
-    Assert-Test (@($script:calls | Where-Object {$_ -eq 'start|owned'}).Count -eq 1) '同配置已停止容器仅启动'
-    Write-BotEnv $envPath @{A='changed'}; $script:calls.Clear()
+    Assert-Test (@($global:QqBotWslcTestCalls | Where-Object {$_ -eq 'start|owned'}).Count -eq 1) '同配置已停止容器仅启动'
+    Write-BotEnv $envPath @{A='changed'}; $global:QqBotWslcTestCalls.Clear()
     Ensure-BotContainer 'owned' @('image') $envPath
-    Assert-Test (@($script:calls | Where-Object {$_ -eq 'remove|owned'}).Count -eq 1) '配置变化可重建容器'
-    Assert-Test (@($script:calls | Where-Object {$_ -match '\|(--volumes|-v)\|'}).Count -eq 0) '重建从不删除持久化卷'
+    Assert-Test (@($global:QqBotWslcTestCalls | Where-Object {$_ -eq 'remove|owned'}).Count -eq 1) '配置变化可重建容器'
+    Assert-Test (@($global:QqBotWslcTestCalls | Where-Object {$_ -match '\|(--volumes|-v)\|'}).Count -eq 0) '重建从不删除持久化卷'
     $listener=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,6099)
     $listener.ExclusiveAddressUse=$true
-    try { $listener.Start(); Assert-Throws {Assert-BotPort} '6099' 'WebUI 端口冲突拒绝自动换端口' }
+    try {
+        try { $listener.Start() } catch [Net.Sockets.SocketException] { }
+        Assert-Throws {Assert-BotPort} '6099' 'WebUI 端口冲突拒绝自动换端口'
+    }
     finally { $listener.Stop() }
     $repo=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
     $ignore=[IO.File]::ReadAllText((Join-Path $repo '.dockerignore'))
     Assert-Test ($ignore -match '(?m)^\.env$' -and $ignore -match '(?m)^data$' -and $ignore -match 'deploy/\.wslc') '构建排除凭证、旧数据与部署状态'
     $build=[IO.File]::ReadAllText((Join-Path $repo 'deploy/wslc-build.ps1'))
     Assert-Test ($build.Contains('archive --format=tar') -and $build.Contains('status --porcelain')) '仅从已提交 Git 快照构建'
+    $owned.State.Running=$true
+    $owned.State | Add-Member -NotePropertyName 'Status' -NotePropertyValue 'running'
+    $owned | Add-Member -NotePropertyName 'Labels' -NotePropertyValue $owned.Config.Labels
+    $global:QqBotWslcTestObject=$owned
+    function Invoke-WebRequest { [pscustomobject]@{StatusCode=200} }
+    try {
+        $status=@(& (Join-Path $PSScriptRoot '../wslc-deploy.ps1') -Action Status)
+        Assert-Test ($status.Count -eq 1 -and $status[0].WebUI -and $status[0].Sub2ApiHealth -and $status[0].QqLoggedIn) '状态返回单一完整对象，分项检查可见'
+    } finally { Remove-Item -LiteralPath Function:Invoke-WebRequest -ErrorAction SilentlyContinue }
+    Assert-Test ((Protect-BotText 'https://txz.qq.com/p?k=secret&f=123') -eq '[QQ login QR URL redacted]') '隐藏日志中的 QQ 登录二维码链接'
     Write-Host "全部通过：$script:passed 项检查；未访问真实 WSLC 资源。"
 } finally {
     Remove-Item -LiteralPath Function:wslc -ErrorAction SilentlyContinue
+    Remove-Variable QqBotWslcTestObject,QqBotWslcTestError,QqBotWslcTestCalls -Scope Global -ErrorAction SilentlyContinue
     $resolved=[IO.Path]::GetFullPath($temp)
     $root=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar
     if (-not $resolved.StartsWith($root,[StringComparison]::OrdinalIgnoreCase) -or

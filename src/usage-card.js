@@ -190,7 +190,6 @@ function renderTable(columns, rows, y) {
 function buildChannelSvg({
   title, cutoffAt = new Date(), note = '', summaryMetrics,
   modelColumns, modelRows, modelEmptyText,
-  recentColumns, recentRows,
 }) {
   const summaryTop = 126;
   const { cards: summaryCards, bottom: summaryBottom } = renderMetricRow(summaryMetrics, summaryTop);
@@ -204,21 +203,12 @@ function buildChannelSvg({
     ? modelTable.svg
     : `<rect x="${MARGIN}" y="${modelTableTop}" width="${CONTENT_WIDTH}" height="84" rx="18" fill="#f0f8fc" stroke="#f1bfd1" stroke-width="2" stroke-dasharray="7 6"/>${text(WIDTH / 2, modelTableTop + 50, modelEmptyText || '暂无数据', { size: 18, fill: '#8b969c', weight: 700, anchor: 'middle' })}`;
 
-  cursor = modelTableBottom + 50;
-  const recentTitleY = cursor;
-  const recentTableTop = cursor + 26;
-  const recentTable = renderTable(recentColumns, recentRows, recentTableTop);
-  const recentTableSvg = recentRows.length
-    ? recentTable.svg
-    : `<rect x="${MARGIN}" y="${recentTableTop}" width="${CONTENT_WIDTH}" height="84" rx="18" fill="#f0f8fc" stroke="#f1bfd1" stroke-width="2" stroke-dasharray="7 6"/>${text(WIDTH / 2, recentTableTop + 50, '暂无调用记录', { size: 18, fill: '#8b969c', weight: 700, anchor: 'middle' })}`;
-  const recentTableBottom = recentRows.length ? recentTable.bottom : recentTableTop + 84;
-
-  const height = recentTableBottom + (note ? 44 : 24);
+  const height = modelTableBottom + (note ? 44 : 24);
 
   const sectionTitle = (y, label) =>
     `<line x1="${MARGIN}" y1="${y - 12}" x2="${WIDTH - MARGIN}" y2="${y - 12}" stroke="#f2c7d5" stroke-width="1.5" stroke-dasharray="6 5"/>${text(MARGIN, y + 14, label, { size: 22, fill: '#e55280', weight: 750 })}`;
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${height}" viewBox="0 0 ${WIDTH} ${height}" font-family="Arial, Microsoft YaHei, WenQuanYi Zen Hei, sans-serif"><defs><linearGradient id="page" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fffdfd"/><stop offset="1" stop-color="#fffafd"/></linearGradient></defs><rect x="2" y="2" width="996" height="${height - 4}" rx="27" fill="url(#page)" stroke="#f5c9d8" stroke-width="3"/><rect x="40" y="32" width="54" height="54" rx="17" fill="#e85a86"/><polygon points="67,45 71.1,53.3 82,54 73.4,60.8 76.2,71.4 67,65.5 57.8,71.4 60.6,60.8 52,54 62.9,53.3" fill="#ffffff"/>${text(112, 58, title, { size: 30, fill: '#e55280', weight: 800 })}${text(112, 84, `截止到（北京时间）：${formatShanghaiTime(cutoffAt)}`, { size: 13, fill: '#78838d', weight: 600 })}<line x1="3" y1="100" x2="997" y2="100" stroke="#f3cada" stroke-width="2" stroke-dasharray="6 5"/>${summaryCards}${sectionTitle(modelTitleY, '模型状态（近 24 小时）')}${modelTableSvg}${sectionTitle(recentTitleY, '最近十次调用')}${recentTableSvg}${note ? text(MARGIN, height - 16, note, { size: 13, fill: '#8b969c', weight: 600 }) : ''}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${height}" viewBox="0 0 ${WIDTH} ${height}" font-family="Arial, Microsoft YaHei, WenQuanYi Zen Hei, sans-serif"><defs><linearGradient id="page" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fffdfd"/><stop offset="1" stop-color="#fffafd"/></linearGradient></defs><rect x="2" y="2" width="996" height="${height - 4}" rx="27" fill="url(#page)" stroke="#f5c9d8" stroke-width="3"/><rect x="40" y="32" width="54" height="54" rx="17" fill="#e85a86"/><polygon points="67,45 71.1,53.3 82,54 73.4,60.8 76.2,71.4 67,65.5 57.8,71.4 60.6,60.8 52,54 62.9,53.3" fill="#ffffff"/>${text(112, 58, title, { size: 30, fill: '#e55280', weight: 800 })}${text(112, 84, `截止到（北京时间）：${formatShanghaiTime(cutoffAt)}`, { size: 13, fill: '#78838d', weight: 600 })}<line x1="3" y1="100" x2="997" y2="100" stroke="#f3cada" stroke-width="2" stroke-dasharray="6 5"/>${summaryCards}${sectionTitle(modelTitleY, '模型状态（近 24 小时）')}${modelTableSvg}${note ? text(MARGIN, height - 16, note, { size: 13, fill: '#8b969c', weight: 600 }) : ''}</svg>`;
 }
 
 export async function renderChannelCard(data) {

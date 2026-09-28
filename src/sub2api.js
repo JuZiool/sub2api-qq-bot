@@ -100,13 +100,3 @@ export function getChannelMonitorModels(range = '24h') {
   const params = new URLSearchParams({ range });
   return adminClient.request(`/api/v1/admin/channel-monitor-v2/models?${params.toString()}`);
 }
-
-// 最近调用明细：按创建时间倒序取前 limit 条。
-export function getRecentUsageLogs(limit = 10) {
-  const params = new URLSearchParams({
-    sort_by: 'created_at',
-    sort_order: 'desc',
-    page_size: String(limit),
-  });
-  return adminClient.request(`/api/v1/admin/usage?${params.toString()}`);
-}

@@ -89,3 +89,8 @@ export function createUserClient(email, password) {
 export function getDashboardStats() {
   return adminClient.request('/api/v1/admin/dashboard/stats');
 }
+
+export function getDashboardModelStats(startDate, endDate) {
+  const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
+  return adminClient.request(`/api/v1/admin/dashboard/models?${params.toString()}`);
+}

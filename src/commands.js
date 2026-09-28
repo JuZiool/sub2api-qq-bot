@@ -1,5 +1,5 @@
 import { config } from './config.js';
-import { getDashboardStats, createUserClient } from './sub2api.js';
+import { getDashboardStats, getDashboardModelStats, createUserClient } from './sub2api.js';
 import { getBinding, bind, unbind, getClient, removeClient, maskEmail } from './bindings.js';
 
 function fmtNumber(n) {
@@ -12,6 +12,37 @@ function fmtTokens(n) {
   if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
   if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
   return String(n);
+}
+
+function getShanghaiDate(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function formatModelRanking(response) {
+  const models = Array.isArray(response?.models) ? response.models : [];
+  if (models.length === 0) return '今日暂无模型用量';
+
+  return models
+    .map((model) => {
+      const input = Number(model.input_tokens) || 0;
+      const output = Number(model.output_tokens) || 0;
+      const cache = (Number(model.cache_creation_tokens) || 0)
+        + (Number(model.cache_read_tokens) || 0);
+      const total = Number(model.total_tokens) || input + output + cache;
+      return { name: model.model || '未知模型', input, output, cache, total };
+    })
+    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'zh-CN'))
+    .map((model, index) =>
+      `${index + 1}. ${model.name}｜输入 ${fmtTokens(model.input)}｜输出 ${fmtTokens(model.output)}｜缓存 ${fmtTokens(model.cache)}｜总量 ${fmtTokens(model.total)}`,
+    )
+    .join('\n');
 }
 
 export function isAdmin(qq) {
@@ -123,13 +154,23 @@ const commands = [
     match: (name) => name === '状态' || name === 'status',
     adminOnly: false,
     run: async () => {
-      const res = await getDashboardStats();
+      const today = getShanghaiDate();
+      const [statsResult, modelsResult] = await Promise.allSettled([
+        getDashboardStats(),
+        getDashboardModelStats(today, today),
+      ]);
+      if (statsResult.status === 'rejected') throw statsResult.reason;
+
       // 兼容两种响应结构：新版包裹在 stats 里，旧版直接平铺在 data 中
+      const res = statsResult.value;
       const s = res?.stats ?? res ?? {};
       const input = Number(s.today_input_tokens ?? 0);
       const output = Number(s.today_output_tokens ?? 0);
       const cacheCreation = Number(s.today_cache_creation_tokens ?? 0);
       const cacheRead = Number(s.today_cache_read_tokens ?? 0);
+      const ranking = modelsResult.status === 'fulfilled'
+        ? formatModelRanking(modelsResult.value)
+        : '模型排行暂时不可用';
       return [
         '📊 今日状态',
         `活跃用户：${fmtNumber(s.active_users)}`,
@@ -137,6 +178,9 @@ const commands = [
         `缓存：${fmtTokens(cacheCreation + cacheRead)}（创建 ${fmtTokens(cacheCreation)} / 命中 ${fmtTokens(cacheRead)}）`,
         `总 Token：${fmtTokens(s.today_tokens ?? input + output + cacheCreation + cacheRead)}`,
         `缓存命中率：${cacheHitRate(input, cacheRead, cacheCreation)}%`,
+        '',
+        '📈 今日模型用量排行',
+        ranking,
       ].join('\n');
     },
   },

@@ -131,27 +131,46 @@ const commands = [
     run: async ({ senderQQ }) => {
       const client = getClient(senderQQ);
       if (!client) return '未绑定账号，请私聊我发送：/绑定 邮箱 密码';
-      const [res, profile] = await Promise.all([
+      const today = getShanghaiDate();
+      const modelParams = new URLSearchParams({
+        start_date: today,
+        end_date: today,
+        timezone: 'Asia/Shanghai',
+      });
+      const [statsResult, profileResult, modelsResult] = await Promise.allSettled([
         client.request('/api/v1/usage/dashboard/stats'),
         client.request('/api/v1/user/profile'),
+        client.request(`/api/v1/usage/dashboard/models?${modelParams.toString()}`),
       ]);
+      if (statsResult.status === 'rejected') throw statsResult.reason;
+      if (profileResult.status === 'rejected') throw profileResult.reason;
+
       // 兼容新旧结构：stats 包裹或直接平铺
+      const res = statsResult.value;
+      const profile = profileResult.value;
       const s = res?.stats ?? res ?? {};
       const input = Number(s.today_input_tokens ?? 0);
       const output = Number(s.today_output_tokens ?? 0);
       const cacheCreation = Number(s.today_cache_creation_tokens ?? 0);
       const cacheRead = Number(s.today_cache_read_tokens ?? 0);
+      const ranking = modelsResult.status === 'fulfilled'
+        ? formatModelRanking(modelsResult.value)
+        : '模型排行暂时不可用';
+      const todayTokens = fmtTokens(s.today_tokens ?? input + output + cacheCreation + cacheRead);
+      const hitRate = cacheHitRate(input, cacheRead, cacheCreation);
       return [
         '📈 我的今日用量',
         `请求：${fmtNumber(s.today_requests ?? 0)}`,
         `输入：${fmtTokens(input)} ｜ 输出：${fmtTokens(output)}`,
         `缓存：${fmtTokens(cacheCreation + cacheRead)}（创建 ${fmtTokens(cacheCreation)} / 命中 ${fmtTokens(cacheRead)}）`,
-        `今日 Token：${fmtTokens(s.today_tokens ?? input + output + cacheCreation + cacheRead)}`,
-        `缓存命中率：${cacheHitRate(input, cacheRead, cacheCreation)}%`,
+        `今日 Token：${todayTokens} ｜ 缓存命中率：${hitRate}%`,
         `今日费用：$${Number(s.today_actual_cost ?? 0).toFixed(4)}`,
         `累计 Token：${fmtTokens(s.total_tokens ?? 0)}`,
         `累计费用：$${Number(s.total_actual_cost ?? 0).toFixed(4)}`,
         `余额：$${Number(profile?.balance ?? 0).toFixed(4)}`,
+        '',
+        '📈 我的今日模型用量排行',
+        ranking,
       ].join('\n');
     },
   },

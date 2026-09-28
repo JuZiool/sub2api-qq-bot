@@ -33,15 +33,21 @@ function formatModelRanking(response) {
     .map((model) => {
       const input = Number(model.input_tokens) || 0;
       const output = Number(model.output_tokens) || 0;
-      const cache = (Number(model.cache_creation_tokens) || 0)
-        + (Number(model.cache_read_tokens) || 0);
+      const cacheCreation = Number(model.cache_creation_tokens) || 0;
+      const cacheRead = Number(model.cache_read_tokens) || 0;
+      const cache = cacheCreation + cacheRead;
       const total = Number(model.total_tokens) || input + output + cache;
-      return { name: model.model || '未知模型', input, output, cache, total };
+      return {
+        name: model.model || '未知模型',
+        input, output, cacheCreation, cacheRead, cache, total,
+      };
     })
     .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'zh-CN'))
-    .map((model, index) =>
-      `${index + 1}. ${model.name}｜输入 ${fmtTokens(model.input)}｜输出 ${fmtTokens(model.output)}｜缓存 ${fmtTokens(model.cache)}｜总量 ${fmtTokens(model.total)}`,
-    )
+    .map((model, index) => [
+      `${index + 1}. ${model.name}｜缓存命中率 ${cacheHitRate(model.input, model.cacheRead, model.cacheCreation)}%`,
+      `   输入 ${fmtTokens(model.input)} ｜ 输出 ${fmtTokens(model.output)}`,
+      `   缓存 ${fmtTokens(model.cache)} ｜ 总量 ${fmtTokens(model.total)}`,
+    ].join('\n'))
     .join('\n');
 }
 
@@ -171,13 +177,14 @@ const commands = [
       const ranking = modelsResult.status === 'fulfilled'
         ? formatModelRanking(modelsResult.value)
         : '模型排行暂时不可用';
+      const totalTokens = fmtTokens(s.today_tokens ?? input + output + cacheCreation + cacheRead);
+      const overallHitRate = cacheHitRate(input, cacheRead, cacheCreation);
       return [
         '📊 今日状态',
         `活跃用户：${fmtNumber(s.active_users)}`,
         `输入：${fmtTokens(input)} ｜ 输出：${fmtTokens(output)}`,
         `缓存：${fmtTokens(cacheCreation + cacheRead)}（创建 ${fmtTokens(cacheCreation)} / 命中 ${fmtTokens(cacheRead)}）`,
-        `总 Token：${fmtTokens(s.today_tokens ?? input + output + cacheCreation + cacheRead)}`,
-        `缓存命中率：${cacheHitRate(input, cacheRead, cacheCreation)}%`,
+        `总 Token：${totalTokens} ｜ 缓存命中率：${overallHitRate}%`,
         '',
         '📈 今日模型用量排行',
         ranking,

@@ -1,7 +1,7 @@
 import sharp from 'sharp';
 
 const WIDTH = 1000;
-const MARGIN = 48;
+const MARGIN = 40;
 const CONTENT_WIDTH = WIDTH - MARGIN * 2;
 
 function escapeXml(value) {
@@ -36,53 +36,83 @@ export function normalizedModels(response) {
       const cacheRead = Number(model.cache_read_tokens) || 0;
       const total = Number(model.total_tokens) || input + output + cacheCreation + cacheRead;
       return {
-        name: model.model || '未知模型', input, output,
-        cache: cacheCreation + cacheRead, total,
+        name: model.model || '未知模型', input, output, cache: cacheCreation + cacheRead, total,
         hitRate: hitRate(input, cacheRead, cacheCreation),
       };
     })
     .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'zh-CN'));
 }
 
-function text(x, y, value, { size = 26, fill = '#e8eefc', weight = 400, anchor = 'start' } = {}) {
+function text(x, y, value, { size = 24, fill = '#354252', weight = 400, anchor = 'start' } = {}) {
   return `<text x="${x}" y="${y}" fill="${fill}" font-size="${size}" font-weight="${weight}" text-anchor="${anchor}">${escapeXml(value)}</text>`;
 }
 
-function buildSvg({ title, date, heroLabel, totalTokens, overallHitRate, metrics, models, rankingStatus = "" }) {
-  const headerTop = 76;
-  const heroTop = 142;
-  const heroHeight = 194;
-  const metricTop = 364;
-  const metricCardHeight = 104;
-  const metricGap = 14;
-  const metricRows = Math.ceil(metrics.length / 2);
-  const metricsBottom = metricTop + metricRows * metricCardHeight + Math.max(0, metricRows - 1) * metricGap;
-  const sectionTop = metricsBottom + 46;
-  const modelTop = sectionTop + 54;
-  const modelRowHeight = 140;
-  const modelGap = 14;
-  const height = Math.max(740, modelTop + models.length * (modelRowHeight + modelGap) + 78);
+function shorten(value, max = 28) {
+  const chars = [...String(value ?? '')];
+  return chars.length > max ? `${chars.slice(0, max - 1).join('')}…` : chars.join('');
+}
 
-  const metricCards = metrics.map((metric, index) => {
-    const col = index % 2;
-    const row = Math.floor(index / 2);
-    const x = MARGIN + col * (CONTENT_WIDTH / 2 + metricGap / 2);
-    const y = metricTop + row * (metricCardHeight + metricGap);
-    const w = (CONTENT_WIDTH - metricGap) / 2;
-    return `<rect x="${x}" y="${y}" width="${w}" height="${metricCardHeight}" rx="20" fill="#131d32" stroke="#263654"/>${text(x + 22, y + 38, metric.label, { size: 20, fill: '#94a5c6' })}${text(x + 22, y + 78, metric.value, { size: 28, fill: '#f2f6ff', weight: 650 })}`;
+function renderMetricRow(metrics, y) {
+  const gap = 14;
+  const cardWidth = (CONTENT_WIDTH - gap * 2) / 3;
+  const height = 82;
+  const cards = metrics.map((metric, index) => {
+    const x = MARGIN + index * (cardWidth + gap);
+    return `<rect x="${x}" y="${y}" width="${cardWidth}" height="${height}" rx="17" fill="#f4f9fc"/>${text(x + 18, y + 29, metric.label, { size: 16, fill: '#71808c', weight: 600 })}${text(x + 18, y + 62, metric.value, { size: 23, fill: '#27384a', weight: 800 })}`;
   }).join('');
+  return { cards, bottom: y + height };
+}
 
-  const modelCards = models.length
-    ? models.map((model, index) => {
-      const y = modelTop + index * (modelRowHeight + modelGap);
-      const badge = index < 3 ? ['#f6c96d', '#b9c7df', '#d99465'][index] : '#263653';
-      const badgeText = index < 3 ? '#182033' : '#b7c7e4';
-      return `<rect x="${MARGIN}" y="${y}" width="${CONTENT_WIDTH}" height="${modelRowHeight}" rx="20" fill="#131d32" stroke="#263654"/><circle cx="${MARGIN + 28}" cy="${y + 31}" r="17" fill="${badge}"/>${text(MARGIN + 28, y + 38, String(index + 1), { size: 17, fill: badgeText, weight: 700, anchor: 'middle' })}${text(MARGIN + 60, y + 39, model.name, { size: 24, fill: '#f2f6ff', weight: 650 })}${text(WIDTH - MARGIN - 22, y + 38, `缓存命中率 ${model.hitRate}%`, { size: 19, fill: '#8be0d0', anchor: 'end' })}${text(MARGIN + 28, y + 81, `输入  ${fmtTokens(model.input)}     ·     输出  ${fmtTokens(model.output)}`, { size: 20, fill: '#c0cbe0' })}${text(MARGIN + 28, y + 116, `缓存  ${fmtTokens(model.cache)}     ·     总量  ${fmtTokens(model.total)}`, { size: 20, fill: '#c0cbe0' })}`;
-    }).join('')
-    : `<rect x="${MARGIN}" y="${modelTop}" width="${CONTENT_WIDTH}" height="118" rx="20" fill="#131d32" stroke="#263654"/>${text(WIDTH / 2, modelTop + 69, rankingStatus || '今日暂无模型用量', { size: 23, fill: '#94a5c6', anchor: 'middle' })}`;
+function renderExtraMetrics(metrics, y) {
+  if (!metrics?.length) return { cards: '', bottom: y };
+  const columns = 3;
+  const gap = 12;
+  const height = 70;
+  const cardWidth = (CONTENT_WIDTH - gap * (columns - 1)) / columns;
+  const rows = Math.ceil(metrics.length / columns);
+  const cards = metrics.map((metric, index) => {
+    const x = MARGIN + (index % columns) * (cardWidth + gap);
+    const top = y + Math.floor(index / columns) * (height + gap);
+    return `<rect x="${x}" y="${top}" width="${cardWidth}" height="${height}" rx="15" fill="#fffafd" stroke="#f7dce6"/>${text(x + 15, top + 26, metric.label, { size: 14, fill: '#89939a', weight: 600 })}${text(x + 15, top + 53, metric.value, { size: 19, fill: '#344252', weight: 750 })}`;
+  }).join('');
+  return { cards, bottom: y + rows * height + (rows - 1) * gap };
+}
 
-  const finalHeight = height + (models.length ? 0 : 132);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${finalHeight}" viewBox="0 0 ${WIDTH} ${finalHeight}" font-family="Arial, Microsoft YaHei, WenQuanYi Zen Hei, sans-serif"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0b1220"/><stop offset="1" stop-color="#111d34"/></linearGradient><linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#63d8c6"/><stop offset="1" stop-color="#8eabff"/></linearGradient><radialGradient id="glow"><stop stop-color="#386d91" stop-opacity=".32"/><stop offset="1" stop-color="#386d91" stop-opacity="0"/></radialGradient></defs><rect width="100%" height="100%" fill="url(#bg)"/><circle cx="900" cy="80" r="280" fill="url(#glow)"/><rect x="${MARGIN}" y="38" width="7" height="44" rx="4" fill="url(#accent)"/>${text(MARGIN + 24, headerTop, title, { size: 34, weight: 700 })}${text(WIDTH - MARGIN, headerTop, date, { size: 19, fill: '#8292b1', anchor: 'end' })}<rect x="${MARGIN}" y="${heroTop}" width="${CONTENT_WIDTH}" height="${heroHeight}" rx="26" fill="#182640" stroke="#314565"/>${text(MARGIN + 30, heroTop + 43, heroLabel, { size: 19, fill: '#9cb0d1' })}${text(MARGIN + 30, heroTop + 111, totalTokens, { size: 50, fill: '#f4f7ff', weight: 700 })}${text(MARGIN + 30, heroTop + 155, 'TOKENS', { size: 15, fill: '#7588aa', weight: 700 })}<line x1="670" y1="${heroTop + 37}" x2="670" y2="${heroTop + 157}" stroke="#344765"/>${text(710, heroTop + 63, '缓存命中率', { size: 18, fill: '#9cb0d1' })}${text(710, heroTop + 116, `${overallHitRate}%`, { size: 38, fill: '#8be0d0', weight: 700 })}${metricCards}${text(MARGIN, sectionTop + 26, '今日模型用量排行', { size: 25, weight: 650 })}${text(WIDTH - MARGIN, sectionTop + 25, `${rankingStatus || `${models.length} 个模型`}`, { size: 17, fill: '#8292b1', anchor: 'end' })}${modelCards}${text(WIDTH - MARGIN, finalHeight - 28, 'sub2api · USAGE INSIGHTS', { size: 13, fill: '#5f7090', anchor: 'end' })}</svg>`;
+function renderModelCard(model, index, y) {
+  const x = MARGIN;
+  const width = CONTENT_WIDTH;
+  const height = 142;
+  const top = y;
+  const left = x + 20;
+  const right = x + width - 20;
+  const mid = x + width / 2;
+  return `<rect x="${x + 4}" y="${top + 5}" width="${width}" height="${height}" rx="20" fill="#f8d9e3"/><rect x="${x}" y="${top}" width="${width}" height="${height}" rx="20" fill="url(#modelFill)" stroke="#75c487" stroke-width="2"/><rect x="${left}" y="${top + 17}" width="34" height="34" rx="11" fill="#e85582"/>${text(left + 17, top + 41, String(index + 1), { size: 19, fill: '#ffffff', weight: 800, anchor: 'middle' })}${text(left + 48, top + 41, shorten(model.name), { size: 22, fill: '#26394b', weight: 800 })}<rect x="${right - 126}" y="${top + 18}" width="126" height="32" rx="16" fill="#eff9f1" stroke="#b8e0c0"/>${text(right - 63, top + 39, `命中 ${model.hitRate}%`, { size: 16, fill: '#29964a', weight: 750, anchor: 'middle' })}<line x1="${left}" y1="${top + 64}" x2="${right}" y2="${top + 64}" stroke="#f0cbd7" stroke-width="1.5" stroke-dasharray="5 5"/>${text(left, top + 89, '输入', { size: 15, fill: '#82909b', weight: 600 })}${text(mid - 15, top + 89, fmtTokens(model.input), { size: 16, fill: '#27384a', weight: 800, anchor: 'end' })}${text(mid + 8, top + 89, '输出', { size: 15, fill: '#82909b', weight: 600 })}${text(right, top + 89, fmtTokens(model.output), { size: 16, fill: '#27384a', weight: 800, anchor: 'end' })}<line x1="${left}" y1="${top + 101}" x2="${right}" y2="${top + 101}" stroke="#f0cbd7" stroke-width="1" stroke-dasharray="4 5"/>${text(left, top + 126, '缓存', { size: 15, fill: '#82909b', weight: 600 })}${text(mid - 15, top + 126, fmtTokens(model.cache), { size: 16, fill: '#27384a', weight: 800, anchor: 'end' })}${text(mid + 8, top + 126, '总量', { size: 15, fill: '#82909b', weight: 600 })}${text(right, top + 126, fmtTokens(model.total), { size: 16, fill: '#2caa54', weight: 800, anchor: 'end' })}`;
+}
+
+function buildSvg({
+  title, subtitle, todayBadge = '今日 · 上海时间', heroLabel, totalTokens, overallHitRate,
+  heroFootnote = '', heroRateFootnote = '今日累计', metrics, extraMetrics = [], models, rankingStatus = '',
+}) {
+  const heroTop = 142;
+  const heroHeight = 145;
+  const metricTop = 304;
+  const { cards: metricCards, bottom: metricBottom } = renderMetricRow(metrics, metricTop);
+  const { cards: extraCards, bottom: extraBottom } = renderExtraMetrics(extraMetrics, metricBottom + 12);
+  const sectionTop = extraBottom + 28;
+  const modelTop = sectionTop + 44;
+  const modelHeight = 142;
+  const modelGap = 12;
+  const emptyHeight = 92;
+  const modelBottom = models.length
+    ? modelTop + models.length * modelHeight + (models.length - 1) * modelGap
+    : modelTop + emptyHeight;
+  const height = modelBottom + 56;
+
+  const cards = models.length
+    ? models.map((model, index) => renderModelCard(model, index, modelTop + index * (modelHeight + modelGap))).join('')
+    : `<rect x="${MARGIN}" y="${modelTop}" width="${CONTENT_WIDTH}" height="${emptyHeight}" rx="18" fill="#f0f8fc" stroke="#f1bfd1" stroke-width="2" stroke-dasharray="7 6"/>${text(WIDTH / 2, modelTop + 55, rankingStatus || '今日暂无模型用量', { size: 18, fill: '#8b969c', weight: 700, anchor: 'middle' })}`;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${height}" viewBox="0 0 ${WIDTH} ${height}" font-family="Arial, Microsoft YaHei, WenQuanYi Zen Hei, sans-serif"><defs><linearGradient id="page" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fffdfd"/><stop offset="1" stop-color="#fffafd"/></linearGradient><linearGradient id="pink" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff0f5"/><stop offset="1" stop-color="#ffeef4"/></linearGradient><linearGradient id="green" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f1faf2"/><stop offset="1" stop-color="#edf8ef"/></linearGradient><linearGradient id="modelFill" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffffff"/><stop offset="1" stop-color="#f5fbf6"/></linearGradient></defs><rect x="2" y="2" width="996" height="${height - 4}" rx="27" fill="url(#page)" stroke="#f5c9d8" stroke-width="3"/><rect x="40" y="32" width="54" height="54" rx="17" fill="#e85a86"/>${text(67, 68, '✦', { size: 28, fill: '#ffffff', weight: 700, anchor: 'middle' })}${text(112, 58, title, { size: 30, fill: '#e55280', weight: 800 })}${text(112, 84, subtitle, { size: 14, fill: '#78838d', weight: 600 })}<rect x="${WIDTH - 188}" y="39" width="148" height="38" rx="19" fill="#fff1f5" stroke="#f4cbd9"/>${text(WIDTH - 114, 64, todayBadge, { size: 14, fill: '#e55280', weight: 700, anchor: 'middle' })}<line x1="3" y1="112" x2="997" y2="112" stroke="#f3cada" stroke-width="2" stroke-dasharray="6 5"/><rect x="${MARGIN}" y="${heroTop}" width="535" height="${heroHeight}" rx="20" fill="url(#pink)" stroke="#f6d2de"/><rect x="590" y="${heroTop}" width="370" height="${heroHeight}" rx="20" fill="url(#green)" stroke="#d4ead8"/>${text(MARGIN + 20, heroTop + 31, heroLabel, { size: 16, fill: '#78838d', weight: 700 })}${text(MARGIN + 20, heroTop + 80, totalTokens, { size: 39, fill: '#e55280', weight: 800 })}${text(MARGIN + 20, heroTop + 123, heroFootnote, { size: 14, fill: '#7a8790', weight: 650 })}${text(610, heroTop + 31, '缓存命中率', { size: 16, fill: '#78838d', weight: 700 })}${text(610, heroTop + 82, `${overallHitRate}%`, { size: 38, fill: '#37a75a', weight: 800 })}${text(940, heroTop + 122, heroRateFootnote, { size: 13, fill: '#7c898f', weight: 650, anchor: 'end' })}${metricCards}${extraCards}<line x1="${MARGIN}" y1="${sectionTop - 12}" x2="${WIDTH - MARGIN}" y2="${sectionTop - 12}" stroke="#f2c7d5" stroke-width="1.5" stroke-dasharray="6 5"/>${text(MARGIN, sectionTop + 20, '今日模型用量排行', { size: 22, fill: '#e55280', weight: 750 })}<rect x="${WIDTH - MARGIN - 124}" y="${sectionTop - 1}" width="124" height="30" rx="15" fill="#f1f9ff" stroke="#b9dff6"/>${text(WIDTH - MARGIN - 62, sectionTop + 19, rankingStatus || '按总 Token 排序', { size: 13, fill: '#3793ca', weight: 700, anchor: 'middle' })}${cards}<line x1="${MARGIN}" y1="${height - 37}" x2="${WIDTH - MARGIN}" y2="${height - 37}" stroke="#f2c7d5" stroke-width="1.5" stroke-dasharray="6 5"/>${text(MARGIN, height - 15, 'sub2api · 上海时区统计', { size: 12, fill: '#89949b', weight: 600 })}${text(WIDTH - MARGIN, height - 15, 'USAGE', { size: 12, fill: '#89949b', weight: 700, anchor: 'end' })}</svg>`;
 }
 
 export async function renderUsageCard(data) {

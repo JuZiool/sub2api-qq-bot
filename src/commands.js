@@ -173,14 +173,15 @@ const commands = [
       ].join('\n');
       try {
         const image = await renderUsageCard({
-          title: '我的今日用量', date: today, heroLabel: '今日 Token',
+          title: '我的用量', subtitle: 'sub2api · 个人用量概览', heroLabel: '总 Token',
+          heroFootnote: `请求数  ${fmtNumber(s.today_requests ?? 0)}`, heroRateFootnote: '今日累计',
           totalTokens: todayTokens, overallHitRate: hitRate,
           metrics: [
-            { label: '请求', value: fmtNumber(s.today_requests ?? 0) },
-            { label: '输入 Token', value: fmtTokens(input) },
-            { label: '输出 Token', value: fmtTokens(output) },
-            { label: '缓存创建', value: fmtTokens(cacheCreation) },
-            { label: '缓存命中', value: fmtTokens(cacheRead) },
+            { label: '输入', value: fmtTokens(input) },
+            { label: '输出', value: fmtTokens(output) },
+            { label: '缓存', value: fmtTokens(cacheCreation + cacheRead) },
+          ],
+          extraMetrics: [
             { label: '今日费用', value: `$${Number(s.today_actual_cost ?? 0).toFixed(4)}` },
             { label: '累计 Token', value: fmtTokens(s.total_tokens ?? 0) },
             { label: '累计费用', value: `$${Number(s.total_actual_cost ?? 0).toFixed(4)}` },
@@ -230,14 +231,13 @@ const commands = [
       ].join('\n');
       try {
         const image = await renderUsageCard({
-          title: '系统今日状态', date: today, heroLabel: '全站今日 Token',
+          title: '今日状态', subtitle: 'sub2api · 全站用量概览', heroLabel: '总 Token',
+          heroFootnote: `活跃用户  ${fmtNumber(s.active_users)}`, heroRateFootnote: '今日累计',
           totalTokens, overallHitRate,
           metrics: [
-            { label: '活跃用户', value: fmtNumber(s.active_users) },
-            { label: '输入 Token', value: fmtTokens(input) },
-            { label: '输出 Token', value: fmtTokens(output) },
-            { label: '缓存创建', value: fmtTokens(cacheCreation) },
-            { label: '缓存命中', value: fmtTokens(cacheRead) },
+            { label: '输入', value: fmtTokens(input) },
+            { label: '输出', value: fmtTokens(output) },
+            { label: '缓存', value: fmtTokens(cacheCreation + cacheRead) },
           ],
           models: modelsResult.status === 'fulfilled' ? normalizedModels(modelsResult.value) : [],
           rankingStatus: modelsResult.status === 'fulfilled' ? '' : '模型排行暂时不可用',

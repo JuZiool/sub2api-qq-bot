@@ -172,7 +172,7 @@ const commands = [
       ].join('\n');
       try {
         const image = await renderUsageCard({
-          title: '我的用量', subtitle: 'sub2api · 个人用量概览', heroLabel: '总 Token',
+          title: '我的用量', heroLabel: '总 Token',
           heroFootnote: `请求数  ${fmtNumber(s.today_requests ?? 0)}`, heroRateFootnote: '今日累计',
           totalTokens: todayTokens, overallHitRate: hitRate,
           metrics: [
@@ -229,7 +229,7 @@ const commands = [
       ].join('\n');
       try {
         const image = await renderUsageCard({
-          title: '今日状态', subtitle: 'sub2api · 全站用量概览', heroLabel: '总 Token',
+          title: '今日状态', heroLabel: '总 Token',
           heroFootnote: `活跃用户  ${fmtNumber(s.active_users)}`, heroRateFootnote: '今日累计',
           totalTokens, overallHitRate,
           metrics: [

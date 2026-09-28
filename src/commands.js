@@ -165,8 +165,8 @@ const commands = [
         `输入：${fmtTokens(input)} ｜ 输出：${fmtTokens(output)}`,
         `缓存：${fmtTokens(cacheCreation + cacheRead)}（创建 ${fmtTokens(cacheCreation)} / 命中 ${fmtTokens(cacheRead)}）`,
         `今日 Token：${todayTokens} ｜ 缓存命中率：${hitRate}%`,
-        `今日费用：$${Number(s.today_actual_cost ?? 0).toFixed(4)}`,
         `累计 Token：${fmtTokens(s.total_tokens ?? 0)}`,
+        `今日费用：$${Number(s.today_actual_cost ?? 0).toFixed(4)}`,
         `余额：$${Number(profile?.balance ?? 0).toFixed(4)}`,
         '', '📈 我的今日模型用量排行', ranking,
       ].join('\n');
@@ -181,8 +181,8 @@ const commands = [
             { label: '缓存', value: fmtTokens(cacheCreation + cacheRead) },
           ],
           extraMetrics: [
-            { label: '今日费用', value: `$${Number(s.today_actual_cost ?? 0).toFixed(4)}` },
             { label: '累计 Token', value: fmtTokens(s.total_tokens ?? 0) },
+            { label: '今日费用', value: `$${Number(s.today_actual_cost ?? 0).toFixed(4)}` },
             { label: '账户余额', value: `$${Number(profile?.balance ?? 0).toFixed(4)}` },
           ],
           models: modelsResult.status === 'fulfilled' ? normalizedModels(modelsResult.value) : [],

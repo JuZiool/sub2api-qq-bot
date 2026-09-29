@@ -1,6 +1,7 @@
 import { config } from './config.js';
 import { getDashboardStats, getDashboardModelStats, createUserClient, getChannelMonitorModels } from './sub2api.js';
 import { getBinding, bind, unbind, getClient, removeClient, maskEmail } from './bindings.js';
+import { getTodayCheckin, checkin } from './checkin.js';
 import { renderUsageCard, normalizedModels, renderChannelCard, fmtSeconds } from './usage-card.js';
 
 function fmtNumber(n) {
@@ -91,6 +92,7 @@ const commands = [
         '/绑定 <邮箱> <密码> - 绑定账号（仅私聊）',
         '/解绑 - 解除绑定（仅私聊）',
         '/我的 - 查看绑定状态',
+        '/签到 - 每日签到领随机余额（需绑定）',
         '/用量 - 查询我的今日用量（需绑定）',
         '/状态 - 系统概况（今日全站用量）',
         '/渠道状态 - 近 24h 模型状态',
@@ -139,6 +141,29 @@ const commands = [
       const b = getBinding(senderQQ);
       if (!b) return '未绑定账号，请私聊我发送：/绑定 邮箱 密码';
       return `已绑定：${b.emailMasked}（${b.boundAt.slice(0, 10)} 起）`;
+    },
+  },
+
+  {
+    // 签到：每日随机 0~1 美元奖励（对数均匀分布，金额越大概率越低），管理员接口加余额
+    match: (name) => name === '签到' || name === 'checkin',
+    adminOnly: false,
+    run: async ({ senderQQ }) => {
+      const b = getBinding(senderQQ);
+      if (!b) return '未绑定账号，请私聊我发送：/绑定 邮箱 密码';
+
+      const today = getTodayCheckin(senderQQ);
+      if (today) {
+        return `今天已经签到过啦～\n今日奖励：$${today.amount.toFixed(2)}\n明天再来吧！`;
+      }
+
+      const { amount, balance } = await checkin(senderQQ, b);
+      const balanceText = Number.isFinite(balance) ? `$${balance.toFixed(4)}` : '查询失败';
+      return [
+        '🎁 签到成功！',
+        `今日奖励：$${amount.toFixed(2)}`,
+        `账户余额：${balanceText}`,
+      ].join('\n');
     },
   },
 

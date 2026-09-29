@@ -44,12 +44,27 @@ export function getTodayCheckin(qq) {
   return record && record.date === getShanghaiDate() ? record : null;
 }
 
-// 奖励金额：对数均匀分布 10^(-2u)，u~U[0,1)
-// 金额每翻 10 倍概率衰减一个数量级（≥0.5 约 15%，≥0.9 约 2.2%）
+// 签到奖励档位（美元）：额度越大权重越低，权重合计 100
+// 均值约 $0.22/天，$2 约 0.8%、$5 约 0.2% 保底稀有感
+const AMOUNT_TIERS = [
+  { amount: 0.05, weight: 35 },
+  { amount: 0.1, weight: 30 },
+  { amount: 0.3, weight: 20 },
+  { amount: 0.5, weight: 10 },
+  { amount: 1, weight: 4 },
+  { amount: 2, weight: 0.8 },
+  { amount: 5, weight: 0.2 },
+];
+
+// 按权重随机抽取一个档位金额
 export function randomAmount() {
-  const u = Math.random();
-  const amount = Math.round(10 ** (-2 * u) * 100) / 100;
-  return Math.max(amount, 0.01);
+  const total = AMOUNT_TIERS.reduce((sum, tier) => sum + tier.weight, 0);
+  let roll = Math.random() * total;
+  for (const tier of AMOUNT_TIERS) {
+    roll -= tier.weight;
+    if (roll < 0) return tier.amount;
+  }
+  return AMOUNT_TIERS[0].amount;
 }
 
 // 兜底：绑定记录缺失 userId 时用管理员接口按邮箱查询

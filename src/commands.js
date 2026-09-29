@@ -1,6 +1,6 @@
 import { config } from './config.js';
 import { getDashboardStats, getDashboardModelStats, createUserClient, getChannelMonitorModels } from './sub2api.js';
-import { getBinding, bind, unbind, getClient, removeClient, maskEmail } from './bindings.js';
+import { getBinding, bind, unbind, getClient, maskEmail } from './bindings.js';
 import { checkin } from './checkin.js';
 import { renderUsageCard, normalizedModels, renderChannelCard, fmtSeconds } from './usage-card.js';
 
@@ -110,6 +110,8 @@ const commands = [
         return '用法：/绑定 邮箱 密码';
       }
       try {
+        // 已知存储异常时不联网验证；保存时会再次读取，防止验证期间数据被修改。
+        getBinding(senderQQ);
         const client = createUserClient(email, password);
         const profile = await client.verify();
         bind(senderQQ, email, password, profile?.id ?? profile?.user?.id ?? null);
@@ -125,11 +127,9 @@ const commands = [
     adminOnly: false,
     privateOnly: true,
     run: ({ senderQQ }) => {
-      if (!getBinding(senderQQ)) {
+      if (!unbind(senderQQ)) {
         return '你还没有绑定账号。';
       }
-      unbind(senderQQ);
-      removeClient(senderQQ);
       return '✅ 已解除绑定';
     },
   },

@@ -1,75 +1,13 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createUserClient } from './sub2api.js';
+import { createBindingStore } from './binding-store.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STORE_PATH = path.join(__dirname, '..', 'data', 'bindings.json');
+export { maskEmail } from './binding-store.js';
 
-// QQ号 → 绑定信息 { email, password, userId, emailMasked, boundAt }
-// 凭证仅保存在本地 data/bindings.json，不进 git、不打日志
-let bindings = {};
+const store = createBindingStore({
+  storePath: path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data', 'bindings.json'),
+  createUserClient,
+});
 
-function load() {
-  try {
-    bindings = JSON.parse(fs.readFileSync(STORE_PATH, 'utf8'));
-  } catch {
-    bindings = {};
-  }
-}
-
-function save() {
-  fs.mkdirSync(path.dirname(STORE_PATH), { recursive: true });
-  // 先写临时文件再替换，避免写一半损坏
-  const tmp = `${STORE_PATH}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(bindings, null, 2));
-  fs.renameSync(tmp, STORE_PATH);
-}
-
-load();
-
-export function maskEmail(email) {
-  const [name, domain] = String(email).split('@');
-  if (!domain) return '***';
-  const head = name.slice(0, 1);
-  return `${head}***@${domain}`;
-}
-
-export function getBinding(qq) {
-  return bindings[String(qq)] || null;
-}
-
-export function bind(qq, email, password, userId) {
-  bindings[String(qq)] = {
-    email,
-    password,
-    userId: userId ?? null,
-    emailMasked: maskEmail(email),
-    boundAt: new Date().toISOString(),
-  };
-  save();
-}
-
-export function unbind(qq) {
-  if (!bindings[String(qq)]) return false;
-  delete bindings[String(qq)];
-  save();
-  return true;
-}
-
-// 取绑定用户的 API 客户端（含短时 token 缓存）
-const clientCache = new Map();
-
-export function getClient(qq) {
-  const b = getBinding(qq);
-  if (!b) return null;
-  const key = String(qq);
-  if (!clientCache.has(key)) {
-    clientCache.set(key, createUserClient(b.email, b.password));
-  }
-  return clientCache.get(key);
-}
-
-export function removeClient(qq) {
-  clientCache.delete(String(qq));
-}
+export const { getBinding, bind, unbind, getClient, removeClient } = store;

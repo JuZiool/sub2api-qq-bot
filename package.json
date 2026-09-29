@@ -8,7 +8,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "test": "node --test tests/checkin.test.js tests/sub2api.test.js deploy/tests/seed-config.test.mjs"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

@@ -2,18 +2,20 @@ import { config } from './config.js';
 
 // sub2api API 客户端工厂：每个凭证集合（管理员/绑定用户）独立缓存 token，过期或 401 自动重登
 
-function createClient({ email, password, label = 'client' }) {
+export function createClient({ email, password, label = 'client', baseUrl = config.sub2api.baseUrl, fetchImpl = globalThis.fetch }) {
   let token = null;
   let tokenExpiresAt = 0;
 
-  async function rawRequest(path, { method = 'GET', body, auth = true } = {}) {
+  async function rawRequest(path, { method = 'GET', body, auth = true, idempotencyKey, timeoutMs = 15000 } = {}) {
     const headers = { 'Content-Type': 'application/json' };
     if (auth && token) headers.Authorization = `Bearer ${token}`;
+    if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
 
-    const res = await fetch(`${config.sub2api.baseUrl}${path}`, {
+    const res = await fetchImpl(`${baseUrl}${path}`, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(timeoutMs),
     });
 
     const data = await res.json().catch(() => ({}));
@@ -35,20 +37,33 @@ function createClient({ email, password, label = 'client' }) {
     return data;
   }
 
-  async function login() {
+  async function login(timeoutMs = 15000) {
     const data = await rawRequest('/api/v1/auth/login', {
       method: 'POST',
       auth: false,
+      timeoutMs,
       body: { email, password },
     });
+    if (typeof data?.access_token !== 'string' || !data.access_token) {
+      throw new Error('登录接口未返回有效 token');
+    }
     token = data.access_token;
     // expires_in 为秒；提前 60 秒过期，避免边界请求失败
     tokenExpiresAt = Date.now() + ((data.expires_in || 3600) - 60) * 1000;
   }
 
+  async function loginBeforeRequest(timeoutMs) {
+    try { await login(timeoutMs); }
+    catch (err) {
+      // 登录阶段失败，或首次写请求已被 401 拒绝；目标写操作尚未被接受。
+      err.requestNotSent = true;
+      throw err;
+    }
+  }
+
   async function request(path, options = {}) {
     if (!token || Date.now() >= tokenExpiresAt) {
-      await login();
+      await loginBeforeRequest(options.timeoutMs);
     }
     try {
       return await rawRequest(path, options);
@@ -56,7 +71,7 @@ function createClient({ email, password, label = 'client' }) {
       // token 失效则重登一次重试
       if (err.status === 401) {
         token = null;
-        await login();
+        await loginBeforeRequest(options.timeoutMs);
         return rawRequest(path, options);
       }
       throw err;

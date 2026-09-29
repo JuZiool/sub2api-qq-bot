@@ -1,7 +1,7 @@
 import { config } from './config.js';
 import { getDashboardStats, getDashboardModelStats, createUserClient, getChannelMonitorModels } from './sub2api.js';
 import { getBinding, bind, unbind, getClient, removeClient, maskEmail } from './bindings.js';
-import { getTodayCheckin, checkin } from './checkin.js';
+import { checkin } from './checkin.js';
 import { renderUsageCard, normalizedModels, renderChannelCard, fmtSeconds } from './usage-card.js';
 
 function fmtNumber(n) {
@@ -145,19 +145,18 @@ const commands = [
   },
 
   {
-    // 签到：每日随机 0~1 美元奖励（对数均匀分布，金额越大概率越低），管理员接口加余额
+    // 签到：每个 Orange 账号每天一次，固定档位抽奖，发放和去重由签到服务统一处理
     match: (name) => name === '签到' || name === 'checkin',
     adminOnly: false,
     run: async ({ senderQQ }) => {
       const b = getBinding(senderQQ);
       if (!b) return '未绑定账号，请私聊我发送：/绑定 邮箱 密码';
 
-      const today = getTodayCheckin(senderQQ);
-      if (today) {
-        return `今天已经签到过啦～\n今日奖励：$${today.amount.toFixed(2)}\n明天再来吧！`;
+      const { amount, balance, alreadyCheckedIn, recovered } = await checkin(senderQQ, b);
+      if (alreadyCheckedIn) {
+        const prefix = recovered ? '已确认上次签到奖励到账，记录已恢复。' : '今天已经签到过啦～';
+        return `${prefix}\n今日奖励：$${amount.toFixed(2)}\n明天再来吧！`;
       }
-
-      const { amount, balance } = await checkin(senderQQ, b);
       const balanceText = Number.isFinite(balance) ? `$${balance.toFixed(4)}` : '查询失败';
       return [
         '🎁 签到成功！',

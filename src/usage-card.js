@@ -214,3 +214,14 @@ function buildChannelSvg({
 export async function renderChannelCard(data) {
   return sharp(Buffer.from(buildChannelSvg(data))).png().toBuffer();
 }
+
+// ===== 每日签到 卡片 =====
+
+export async function renderCheckinCard({ amount, balanceText, statusText = '', cutoffAt = new Date() }) {
+  const height = 372;
+  const center = WIDTH / 2;
+  const boxWidth = 420;
+  const boxX = (WIDTH - boxWidth) / 2;
+  const boxTop = 296;
+  return sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${height}" viewBox="0 0 ${WIDTH} ${height}" font-family="Arial, Microsoft YaHei, WenQuanYi Zen Hei, sans-serif"><defs><linearGradient id="page" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fffdfd"/><stop offset="1" stop-color="#fffafd"/></linearGradient><linearGradient id="pink" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff0f5"/><stop offset="1" stop-color="#ffeef4"/></linearGradient></defs><rect x="2" y="2" width="996" height="${height - 4}" rx="27" fill="url(#page)" stroke="#f5c9d8" stroke-width="3"/><rect x="40" y="32" width="54" height="54" rx="17" fill="#e85a86"/><polygon points="67,45 71.1,53.3 82,54 73.4,60.8 76.2,71.4 67,65.5 57.8,71.4 60.6,60.8 52,54 62.9,53.3" fill="#ffffff"/>${text(112, 58, '每日签到', { size: 30, fill: '#e55280', weight: 800 })}${text(112, 84, `截止到（北京时间）：${formatShanghaiTime(cutoffAt)}`, { size: 13, fill: '#78838d', weight: 600 })}<line x1="3" y1="100" x2="997" y2="100" stroke="#f3cada" stroke-width="2" stroke-dasharray="6 5"/>${text(center, 166, '今日奖励', { size: 20, fill: '#8a959e', weight: 700, anchor: 'middle' })}${text(center, 258, `$${Number(amount).toFixed(2)}`, { size: 72, fill: '#e55280', weight: 800, anchor: 'middle' })}${statusText ? text(center, 288, statusText, { size: 16, fill: '#c26a8d', weight: 650, anchor: 'middle' }) : ''}<rect x="${boxX}" y="${boxTop}" width="${boxWidth}" height="52" rx="17" fill="url(#pink)" stroke="#f6d2de"/>${text(center, boxTop + 33, `账户余额：${balanceText ?? '查询失败'}`, { size: 19, fill: '#344252', weight: 750, anchor: 'middle' })}</svg>`)).png().toBuffer();
+}

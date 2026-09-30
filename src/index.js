@@ -26,29 +26,42 @@ function callAction(action, params = {}, timeoutMs = 15000) {
   });
 }
 
-function messageSegments(reply) {
-  if (reply && typeof reply === 'object' && reply.type === 'image') {
-    return [{ type: 'image', data: reply.data }];
-  }
-  return [{ type: 'text', data: { text: String(reply) } }];
+function messageSegments(reply, prefix = []) {
+  const content = (reply && typeof reply === 'object' && reply.type === 'image')
+    ? [{ type: 'image', data: reply.data }]
+    : [{ type: 'text', data: { text: String(reply) } }];
+  return [...prefix, ...content];
 }
 
-async function sendReply(action, target, reply) {
+async function sendReply(action, target, reply, prefix = []) {
   try {
-    await callAction(action, { ...target, message: messageSegments(reply) });
+    await callAction(action, { ...target, message: messageSegments(reply, prefix) });
   } catch (err) {
     if (!reply || typeof reply !== 'object' || !reply.fallbackText) throw err;
     console.error('[onebot] 图片发送失败，回退文本：', err.message);
-    await callAction(action, { ...target, message: messageSegments(reply.fallbackText) });
+    await callAction(action, { ...target, message: messageSegments(reply.fallbackText, prefix) });
   }
-}
-
-async function sendGroupMessage(groupId, reply) {
-  await sendReply('send_group_msg', { group_id: groupId }, reply);
 }
 
 async function sendPrivateMessage(userId, reply) {
   await sendReply('send_private_msg', { user_id: userId }, reply);
+}
+
+// 群聊回复带引用原消息和 @ 发送者，内容另起一行
+function groupReplyPrefix(event) {
+  const prefix = [];
+  if (event.message_id !== undefined && event.message_id !== null) {
+    prefix.push({ type: 'reply', data: { id: String(event.message_id) } });
+  }
+  if (event.sender?.user_id !== undefined && event.sender?.user_id !== null) {
+    prefix.push({ type: 'at', data: { qq: String(event.sender.user_id) } });
+  }
+  if (prefix.length > 0) prefix.push({ type: 'text', data: { text: '\n' } });
+  return prefix;
+}
+
+async function sendGroupMessage(groupId, reply, prefix = []) {
+  await sendReply('send_group_msg', { group_id: groupId }, reply, prefix);
 }
 // 处理 OneBot 事件
 async function handleEvent(event) {
@@ -72,7 +85,7 @@ async function handleEvent(event) {
   if (!reply) return;
 
   if (event.message_type === 'group') {
-    await sendGroupMessage(event.group_id, reply);
+    await sendGroupMessage(event.group_id, reply, groupReplyPrefix(event));
   } else {
     await sendPrivateMessage(event.user_id, reply);
   }

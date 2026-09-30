@@ -2,7 +2,7 @@ import { config } from './config.js';
 import { getDashboardStats, getDashboardModelStats, createUserClient, getChannelMonitorModels } from './sub2api.js';
 import { getBinding, bind, unbind, getClient, maskEmail } from './bindings.js';
 import { checkin } from './checkin.js';
-import { renderUsageCard, normalizedModels, renderChannelCard, renderCheckinCard, fmtSeconds } from './usage-card.js';
+import { renderUsageCard, normalizedModels, renderChannelCard, fmtSeconds } from './usage-card.js';
 
 function fmtNumber(n) {
   return Number(n ?? 0).toLocaleString('zh-CN');
@@ -153,30 +153,16 @@ const commands = [
       if (!b) return '未绑定账号，请私聊我发送：/绑定 邮箱 密码';
 
       const { amount, balance, alreadyCheckedIn, recovered } = await checkin(senderQQ, b);
-      const balanceText = Number.isFinite(balance) ? `$${balance.toFixed(4)}` : null;
       if (alreadyCheckedIn) {
-        const statusText = recovered ? '已确认上次签到奖励到账，记录已恢复' : '今天已经签到过啦～';
-        const fallbackText = `${statusText}。\n今日奖励：$${amount.toFixed(2)}\n明天再来吧！`;
-        try {
-          const image = await renderCheckinCard({ amount, balanceText, statusText });
-          return { type: 'image', data: { file: `base64://${image.toString('base64')}` }, fallbackText };
-        } catch (err) {
-          console.error('[checkin-card] 图片生成失败，回退文本：', err.message);
-          return fallbackText;
-        }
+        const prefix = recovered ? '已确认上次签到奖励到账，记录已恢复。' : '今天已经签到过啦～';
+        return `${prefix}\n今日奖励：$${amount.toFixed(2)}\n明天再来吧！`;
       }
-      const fallbackText = [
+      const balanceText = Number.isFinite(balance) ? `$${balance.toFixed(4)}` : '查询失败';
+      return [
         '🎁 签到成功！',
         `今日奖励：$${amount.toFixed(2)}`,
-        `账户余额：${balanceText ?? '查询失败'}`,
+        `账户余额：${balanceText}`,
       ].join('\n');
-      try {
-        const image = await renderCheckinCard({ amount, balanceText, statusText: '' });
-        return { type: 'image', data: { file: `base64://${image.toString('base64')}` }, fallbackText };
-      } catch (err) {
-        console.error('[checkin-card] 图片生成失败，回退文本：', err.message);
-        return fallbackText;
-      }
     },
   },
 

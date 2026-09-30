@@ -145,7 +145,7 @@ const commands = [
   },
 
   {
-    // 签到：每个 Orange 账号每天一次，固定档位抽奖，发放和去重由签到服务统一处理
+    // 签到：每个 Orange 账号每天一次，对数均匀随机奖励，发放和去重由签到服务统一处理
     match: (name) => name === '签到' || name === 'checkin',
     adminOnly: false,
     run: async ({ senderQQ }) => {

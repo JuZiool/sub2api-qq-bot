@@ -1,11 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const AMOUNT_TIERS = [
-  { amount: 0.05, weight: 35 }, { amount: 0.1, weight: 30 },
-  { amount: 0.3, weight: 20 }, { amount: 0.5, weight: 10 },
-  { amount: 1, weight: 4 }, { amount: 2, weight: 0.8 }, { amount: 5, weight: 0.2 },
-];
+const AMOUNT_MIN = 0.01;
+const AMOUNT_MAX = 1;
 const STORE_ERROR = '签到记录无法读取或格式损坏，已暂停发放，请联系管理员检查；请勿删除记录后重领。';
 const PENDING_ERROR = '上次签到结果待确认，未再次发放奖励。请稍后重试查询，或联系管理员核对余额流水。';
 
@@ -17,13 +14,9 @@ export function getShanghaiDate(date = new Date()) {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+// 对数均匀分布 10^(-2u)：$0.01~$1.00 精确到分，金额越大概率越低。
 export function randomAmount(random = Math.random) {
-  let roll = random() * AMOUNT_TIERS.reduce((sum, tier) => sum + tier.weight, 0);
-  for (const tier of AMOUNT_TIERS) {
-    roll -= tier.weight;
-    if (roll < 0) return tier.amount;
-  }
-  return AMOUNT_TIERS[0].amount;
+  return Math.round(Math.pow(10, -2 * random()) * 100) / 100;
 }
 
 function userIdString(value) {
@@ -184,7 +177,7 @@ export function createCheckinService({ storePath, request, now = () => new Date(
     }
     if (!record || record.date !== today) {
       const amount = drawAmount();
-      if (!validAmount(amount) || !AMOUNT_TIERS.some(tier => tier.amount === amount)) throw new Error('签到奖励配置异常，已暂停发放。');
+      if (!validAmount(amount) || amount < AMOUNT_MIN || amount > AMOUNT_MAX) throw new Error('签到奖励配置异常，已暂停发放。');
       const idempotencyKey = requestKey(userId, today);
       record = { userId, qq, date: today, amount, idempotencyKey, notes: requestNotes(qq, idempotencyKey), status: 'pending', balance: null };
     } else {

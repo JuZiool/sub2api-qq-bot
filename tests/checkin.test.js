@@ -91,7 +91,7 @@ test('不同账号并发签到不会互相覆盖账本', async t => {
 test('上海跨日边界和奖励档位保持不变', () => {
   assert.equal(getShanghaiDate(new Date('2026-09-29T15:59:59Z')), '2026-09-29');
   assert.equal(getShanghaiDate(new Date('2026-09-29T16:00:00Z')), '2026-09-30');
-  assert.deepEqual([0.1, 0.5, 0.75, 0.9, 0.97, 0.995, 0.999].map(roll => randomAmount(() => roll)), [0.05, 0.1, 0.3, 0.5, 1, 2, 5]);
+  assert.deepEqual([0, 0.5, 0.75, 0.999].map(roll => randomAmount(() => roll)), [1, 0.1, 0.03, 0.01]);
 });
 
 test('成功签到后下一上海日期可以再领，幂等键随日期变化', async t => {

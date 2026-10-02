@@ -91,11 +91,10 @@ const commands = [
         '指令列表：',
         '/绑定 <邮箱> <密码> - 绑定账号（仅私聊）',
         '/解绑 - 解除绑定（仅私聊）',
-        '/我的 - 查看绑定状态',
         '/签到 - 每日签到领随机余额（需绑定）',
-        '/用量 - 查询我的今日用量（需绑定）',
-        '/状态 - 系统概况（今日全站用量）',
-        '/渠道状态 - 近 24h 模型状态',
+        '/今日用量 - 查询我的今日用量（需绑定）',
+        '/全站用量 - 查询今日全站用量',
+        '/模型状态 - 查询近 24h 模型状态',
       ].join('\n'),
   },
 
@@ -135,16 +134,6 @@ const commands = [
   },
 
   {
-    match: (name) => name === '我的',
-    adminOnly: false,
-    run: ({ senderQQ }) => {
-      const b = getBinding(senderQQ);
-      if (!b) return '未绑定账号，请私聊我发送：/绑定 邮箱 密码';
-      return `已绑定：${b.emailMasked}（${b.boundAt.slice(0, 10)} 起）`;
-    },
-  },
-
-  {
     // 签到：每个 Orange 账号每天一次，对数均匀随机奖励，发放和去重由签到服务统一处理
     match: (name) => name === '签到' || name === 'checkin',
     adminOnly: false,
@@ -167,7 +156,7 @@ const commands = [
   },
 
   {
-    match: (name) => name === '用量',
+    match: (name) => name === '今日用量' || name === '用量',
     adminOnly: false,
     run: async ({ senderQQ }) => {
       const client = getClient(senderQQ);
@@ -237,7 +226,7 @@ const commands = [
   },
 
   {
-    match: (name) => name === '状态' || name === 'status',
+    match: (name) => name === '全站用量' || name === '状态' || name === 'status',
     adminOnly: false,
     run: async () => {
       const today = getShanghaiDate();
@@ -260,7 +249,7 @@ const commands = [
       const totalTokens = fmtTokens(s.today_tokens ?? input + output + cacheCreation + cacheRead);
       const overallHitRate = cacheHitRate(input, cacheRead, cacheCreation);
       const fallbackText = [
-        '📊 今日状态',
+        '📊 全站今日用量',
         `活跃用户：${fmtNumber(s.active_users)}`,
         `输入：${fmtTokens(input)} ｜ 输出：${fmtTokens(output)}`,
         `缓存：${fmtTokens(cacheCreation + cacheRead)}（创建 ${fmtTokens(cacheCreation)} / 命中 ${fmtTokens(cacheRead)}）`,
@@ -269,7 +258,7 @@ const commands = [
       ].join('\n');
       try {
         const image = await renderUsageCard({
-          title: '今日状态', heroLabel: '总 Token',
+          title: '全站用量', heroLabel: '总 Token',
           heroFootnote: `活跃用户  ${fmtNumber(s.active_users)}`, heroRateFootnote: '今日累计',
           totalTokens, overallHitRate,
           metrics: [
@@ -288,7 +277,7 @@ const commands = [
     },
   },
   {
-    match: (name) => name === '渠道状态' || name === 'channel',
+    match: (name) => name === '模型状态' || name === '渠道状态' || name === 'channel',
     adminOnly: false,
     run: async () => {
       let monitor;
@@ -330,7 +319,7 @@ const commands = [
       ]);
 
       const fallbackText = [
-        '📡 渠道状态（近 24 小时）',
+        '📡 模型状态（近 24 小时）',
         `调用模型：${models.length} 个 ｜ 请求总数：${fmtNumber(totalRequests)} ｜ 整体缓存命中率：${overallHitRate.toFixed(1)}%`,
         '',
         '📊 模型状态',
@@ -339,7 +328,7 @@ const commands = [
 
       try {
         const image = await renderChannelCard({
-          title: '渠道状态',
+          title: '模型状态',
           summaryMetrics: [
             { label: '调用模型', value: `${models.length} 个` },
             { label: '请求总数', value: fmtNumber(totalRequests) },

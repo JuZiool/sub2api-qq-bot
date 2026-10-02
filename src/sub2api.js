@@ -89,7 +89,7 @@ export function createClient({ email, password, label = 'client', baseUrl = conf
   };
 }
 
-// 管理员客户端（/状态 等管理查询）
+// 管理员客户端（/全站用量 等管理查询）
 export const adminClient = createClient({
   email: config.sub2api.email,
   password: config.sub2api.password,

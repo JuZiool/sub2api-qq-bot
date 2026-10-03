@@ -83,22 +83,23 @@ function cacheHitRate(input, cacheRead, cacheCreation) {
 // 指令处理器：run 返回纯文本回复；整体返回 null 表示忽略该消息
 const commands = [
   {
+    key: 'help',
+    help: '帮助 - 查看指令列表',
     match: (name) => name === '帮助' || name === 'help',
     adminOnly: false,
     run: () =>
       [
         'sub2api 查询机器人',
         '指令列表：',
-        '/绑定 <邮箱> <密码> - 绑定账号（仅私聊）',
-        '/解绑 - 解除绑定（仅私聊）',
-        '/签到 - 每日签到领随机余额（需绑定）',
-        '/今日用量 - 查询我的今日用量（需绑定）',
-        '/全站用量 - 查询今日全站用量',
-        '/模型状态 - 查询近 24h 模型状态',
+        ...commands
+          .filter((command) => command.help && config.bot.commands[command.key])
+          .map((command) => `${config.bot.prefix}${command.help}`),
       ].join('\n'),
   },
 
   {
+    key: 'bind',
+    help: '绑定 <邮箱> <密码> - 绑定账号（仅私聊）',
     // 绑定：/绑定 邮箱 密码（仅私聊，密码不回显不落日志）
     match: (name) => name === '绑定',
     adminOnly: false,
@@ -122,6 +123,8 @@ const commands = [
   },
 
   {
+    key: 'unbind',
+    help: '解绑 - 解除绑定（仅私聊）',
     match: (name) => name === '解绑',
     adminOnly: false,
     privateOnly: true,
@@ -134,6 +137,8 @@ const commands = [
   },
 
   {
+    key: 'checkin',
+    help: '签到 - 每日签到领随机余额（需绑定）',
     // 签到：每个 Orange 账号每天一次，对数均匀随机奖励，发放和去重由签到服务统一处理
     match: (name) => name === '签到' || name === 'checkin',
     adminOnly: false,
@@ -156,6 +161,8 @@ const commands = [
   },
 
   {
+    key: 'usage',
+    help: '今日用量 - 查询我的今日用量（需绑定）',
     match: (name) => name === '今日用量' || name === '用量',
     adminOnly: false,
     run: async ({ senderQQ }) => {
@@ -226,6 +233,8 @@ const commands = [
   },
 
   {
+    key: 'siteUsage',
+    help: '全站用量 - 查询今日全站用量',
     match: (name) => name === '全站用量' || name === '状态' || name === 'status',
     adminOnly: false,
     run: async () => {
@@ -277,6 +286,8 @@ const commands = [
     },
   },
   {
+    key: 'modelStatus',
+    help: '模型状态 - 查询近 24h 模型状态',
     match: (name) => name === '模型状态' || name === '渠道状态' || name === 'channel',
     adminOnly: false,
     run: async () => {
@@ -367,6 +378,9 @@ export async function handleCommand(text, senderQQ, ctx = {}) {
 
   const cmd = commands.find((c) => c.match(name.toLowerCase()));
   if (!cmd) return null;
+  if (!config.bot.commands[cmd.key]) {
+    return '该指令暂未开放。';
+  }
   if (cmd.adminOnly && !isAdmin(senderQQ)) {
     return '该指令仅管理员可用。';
   }

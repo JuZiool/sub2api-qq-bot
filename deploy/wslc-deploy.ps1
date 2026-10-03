@@ -136,7 +136,10 @@ try {
     $onebotToken = if ($envValues.ContainsKey('ONEBOT_ACCESS_TOKEN') -and $envValues.ONEBOT_ACCESS_TOKEN) { [string]$envValues.ONEBOT_ACCESS_TOKEN } else { $secrets.onebotToken }
     $script:SensitiveValues += @($secrets.webuiToken,$secrets.onebotToken,$onebotToken)
     $botEnv = @{}
-    foreach ($key in @('SUB2API_ADMIN_EMAIL','SUB2API_ADMIN_PASSWORD','BOT_COMMAND_PREFIX','ADMIN_QQ_LIST','RESPOND_GROUP','RESPOND_PRIVATE')) {
+    foreach ($key in @(
+        'SUB2API_ADMIN_EMAIL','SUB2API_ADMIN_PASSWORD','BOT_COMMAND_PREFIX','ADMIN_QQ_LIST','RESPOND_GROUP','RESPOND_PRIVATE',
+        'COMMAND_HELP_ENABLED','COMMAND_BIND_ENABLED','COMMAND_UNBIND_ENABLED','COMMAND_CHECKIN_ENABLED',
+        'COMMAND_USAGE_ENABLED','COMMAND_SITE_USAGE_ENABLED','COMMAND_MODEL_STATUS_ENABLED')) {
         if ($envValues.ContainsKey($key)) { $botEnv[$key]=$envValues[$key] }
     }
     $botEnv.ONEBOT_WS_URL='ws://napcat:3001'; $botEnv.ONEBOT_ACCESS_TOKEN=$onebotToken

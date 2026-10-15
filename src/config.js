@@ -30,6 +30,7 @@ export const config = {
       checkin: bool(process.env.COMMAND_CHECKIN_ENABLED, false),
       usage: bool(process.env.COMMAND_USAGE_ENABLED, true),
       siteUsage: bool(process.env.COMMAND_SITE_USAGE_ENABLED, true),
+      ranking: bool(process.env.COMMAND_RANKING_ENABLED, true),
       modelStatus: bool(process.env.COMMAND_MODEL_STATUS_ENABLED, true),
     },
   },

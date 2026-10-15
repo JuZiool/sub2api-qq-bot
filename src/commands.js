@@ -1,8 +1,8 @@
 import { config } from './config.js';
-import { getDashboardStats, getDashboardModelStats, createUserClient, getChannelMonitorModels } from './sub2api.js';
+import { getDashboardStats, getDashboardModelStats, createUserClient, getChannelMonitorModels, getTokenRanking } from './sub2api.js';
 import { getBinding, bind, unbind, getClient, maskEmail } from './bindings.js';
 import { checkin } from './checkin.js';
-import { renderUsageCard, normalizedModels, renderChannelCard, fmtSeconds } from './usage-card.js';
+import { renderUsageCard, normalizedModels, renderChannelCard, renderRankingCard, normalizedRanking, fmtSeconds } from './usage-card.js';
 
 function fmtNumber(n) {
   return Number(n ?? 0).toLocaleString('zh-CN');
@@ -281,6 +281,45 @@ const commands = [
         return { type: 'image', data: { file: `base64://${image.toString('base64')}` }, fallbackText };
       } catch (err) {
         console.error('[status-card] 图片生成失败，回退文本：', err.message);
+        return fallbackText;
+      }
+    },
+  },
+  {
+    key: 'ranking',
+    help: '用量排行 - 查看今日 Token 用量排行 Top10',
+    // 排行榜数据由后端日榜接口产出（已限 Top10、按总 Token 降序、邮箱已脱敏）
+    match: (name) => name === '用量排行' || name === '排行' || name === 'ranking',
+    adminOnly: false,
+    run: async () => {
+      const data = await getTokenRanking('Asia/Shanghai');
+      const items = normalizedRanking(data);
+      const totalRequests = items.reduce((sum, item) => sum + item.requests, 0);
+      const totalTokens = items.reduce((sum, item) => sum + item.total, 0);
+      const date = data?.daily?.date || getShanghaiDate();
+
+      const fallbackText = [
+        '📊 用量排行（今日 Top10）',
+        `上榜用户：${items.length} 位 ｜ 请求总数：${fmtNumber(totalRequests)} ｜ 总 Token：${fmtTokens(totalTokens)}`,
+        '',
+        ...(items.length
+          ? items.map((item) => `- ${item.rank}. ${item.email}｜请求 ${fmtNumber(item.requests)}｜输入 ${fmtTokens(item.input)}｜输出 ${fmtTokens(item.output)}｜总量 ${fmtTokens(item.total)}`)
+          : ['今日暂无用户用量']),
+      ].join('\n');
+
+      try {
+        const image = await renderRankingCard({
+          items,
+          summaryMetrics: [
+            { label: '上榜用户', value: `${items.length} 位` },
+            { label: '请求总数', value: fmtNumber(totalRequests) },
+            { label: '总 Token', value: fmtTokens(totalTokens) },
+          ],
+          note: `注：总量 = 输入 + 输出 + 缓存（创建/命中），按今日总 Token 降序排列；统计日期 ${date}。`,
+        });
+        return { type: 'image', data: { file: `base64://${image.toString('base64')}` }, fallbackText };
+      } catch (err) {
+        console.error('[ranking-card] 图片生成失败，回退文本：', err.message);
         return fallbackText;
       }
     },

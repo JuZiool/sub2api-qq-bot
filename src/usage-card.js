@@ -189,7 +189,7 @@ function renderTable(columns, rows, y) {
 
 function buildChannelSvg({
   title, cutoffAt = new Date(), note = '', summaryMetrics,
-  modelColumns, modelRows, modelEmptyText,
+  modelColumns, modelRows, modelEmptyText, sectionLabel = '模型状态（近 24 小时）',
 }) {
   const summaryTop = 126;
   const { cards: summaryCards, bottom: summaryBottom } = renderMetricRow(summaryMetrics, summaryTop);
@@ -208,9 +208,51 @@ function buildChannelSvg({
   const sectionTitle = (y, label) =>
     `<line x1="${MARGIN}" y1="${y - 12}" x2="${WIDTH - MARGIN}" y2="${y - 12}" stroke="#f2c7d5" stroke-width="1.5" stroke-dasharray="6 5"/>${text(MARGIN, y + 14, label, { size: 22, fill: '#e55280', weight: 750 })}`;
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${height}" viewBox="0 0 ${WIDTH} ${height}" font-family="Arial, Microsoft YaHei, WenQuanYi Zen Hei, sans-serif"><defs><linearGradient id="page" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fffdfd"/><stop offset="1" stop-color="#fffafd"/></linearGradient></defs><rect x="2" y="2" width="996" height="${height - 4}" rx="27" fill="url(#page)" stroke="#f5c9d8" stroke-width="3"/><rect x="40" y="32" width="54" height="54" rx="17" fill="#e85a86"/><polygon points="67,45 71.1,53.3 82,54 73.4,60.8 76.2,71.4 67,65.5 57.8,71.4 60.6,60.8 52,54 62.9,53.3" fill="#ffffff"/>${text(112, 58, title, { size: 30, fill: '#e55280', weight: 800 })}${text(112, 84, `截止到（北京时间）：${formatShanghaiTime(cutoffAt)}`, { size: 13, fill: '#78838d', weight: 600 })}<line x1="3" y1="100" x2="997" y2="100" stroke="#f3cada" stroke-width="2" stroke-dasharray="6 5"/>${summaryCards}${sectionTitle(modelTitleY, '模型状态（近 24 小时）')}${modelTableSvg}${note ? text(MARGIN, height - 16, note, { size: 13, fill: '#8b969c', weight: 600 }) : ''}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${height}" viewBox="0 0 ${WIDTH} ${height}" font-family="Arial, Microsoft YaHei, WenQuanYi Zen Hei, sans-serif"><defs><linearGradient id="page" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fffdfd"/><stop offset="1" stop-color="#fffafd"/></linearGradient></defs><rect x="2" y="2" width="996" height="${height - 4}" rx="27" fill="url(#page)" stroke="#f5c9d8" stroke-width="3"/><rect x="40" y="32" width="54" height="54" rx="17" fill="#e85a86"/><polygon points="67,45 71.1,53.3 82,54 73.4,60.8 76.2,71.4 67,65.5 57.8,71.4 60.6,60.8 52,54 62.9,53.3" fill="#ffffff"/>${text(112, 58, title, { size: 30, fill: '#e55280', weight: 800 })}${text(112, 84, `截止到（北京时间）：${formatShanghaiTime(cutoffAt)}`, { size: 13, fill: '#78838d', weight: 600 })}<line x1="3" y1="100" x2="997" y2="100" stroke="#f3cada" stroke-width="2" stroke-dasharray="6 5"/>${summaryCards}${sectionTitle(modelTitleY, sectionLabel)}${modelTableSvg}${note ? text(MARGIN, height - 16, note, { size: 13, fill: '#8b969c', weight: 600 }) : ''}</svg>`;
 }
 
 export async function renderChannelCard(data) {
   return sharp(Buffer.from(buildChannelSvg(data))).png().toBuffer();
+}
+
+// ===== 用量排行 卡片 =====
+
+// /api/v1/usage/ranking 的 daily.items（后端已按总 Token 降序且限 Top10，邮箱已脱敏）
+export function normalizedRanking(data) {
+  const items = Array.isArray(data?.daily?.items) ? data.daily.items : [];
+  return items.map((item) => ({
+    rank: Number(item.rank) || 0,
+    email: item.email || '未知用户',
+    requests: Number(item.requests) || 0,
+    input: Number(item.input_tokens) || 0,
+    output: Number(item.output_tokens) || 0,
+    cache: Number(item.cache_tokens) || 0,
+    total: Number(item.total_tokens) || 0,
+  })).sort((a, b) => a.rank - b.rank);
+}
+
+export async function renderRankingCard({ items, summaryMetrics, note }) {
+  return renderChannelCard({
+    title: '用量排行',
+    summaryMetrics,
+    sectionLabel: '用量排行（今日 Top10）',
+    modelColumns: [
+      { label: '排名', ratio: 0.08 },
+      { label: '用户', ratio: 0.30 },
+      { label: '请求', ratio: 0.12, align: 'end' },
+      { label: '输入', ratio: 0.145, align: 'end' },
+      { label: '输出', ratio: 0.145, align: 'end' },
+      { label: '总量', ratio: 0.21, align: 'end', color: '#2caa54', weight: 800 },
+    ],
+    modelRows: items.map((item) => [
+      String(item.rank),
+      item.email,
+      fmtNumber(item.requests),
+      fmtTokens(item.input),
+      fmtTokens(item.output),
+      fmtTokens(item.total),
+    ]),
+    modelEmptyText: '今日暂无用户用量',
+    note,
+  });
 }

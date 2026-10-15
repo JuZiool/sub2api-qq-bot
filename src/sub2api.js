@@ -115,3 +115,10 @@ export function getChannelMonitorModels(range = '24h') {
   const params = new URLSearchParams({ range });
   return adminClient.request(`/api/v1/admin/channel-monitor-v2/models?${params.toString()}`);
 }
+
+// 全站 Token 用量排行：后端日榜已限 Top10（按总 Token 降序），邮箱在服务端脱敏。
+// 聚合查询较重，超时放宽到 20s。
+export function getTokenRanking(timezone = 'Asia/Shanghai') {
+  const params = new URLSearchParams({ timezone });
+  return adminClient.request(`/api/v1/usage/ranking?${params.toString()}`, { timeoutMs: 20000 });
+}

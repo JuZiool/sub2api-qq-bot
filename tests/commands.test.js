@@ -13,6 +13,7 @@ const switches = [
   { flag: 'COMMAND_CHECKIN_ENABLED', key: 'checkin', commands: ['/签到', '/checkin'], help: '签到 -' },
   { flag: 'COMMAND_USAGE_ENABLED', key: 'usage', commands: ['/今日用量', '/用量'], help: '今日用量 -' },
   { flag: 'COMMAND_SITE_USAGE_ENABLED', key: 'siteUsage', commands: ['/全站用量', '/状态', '/status'], help: '全站用量 -' },
+  { flag: 'COMMAND_RANKING_ENABLED', key: 'ranking', commands: ['/用量排行', '/排行', '/ranking'], help: '用量排行 -' },
   { flag: 'COMMAND_MODEL_STATUS_ENABLED', key: 'modelStatus', commands: ['/模型状态', '/渠道状态', '/channel'], help: '模型状态 -' },
 ];
 
@@ -64,7 +65,7 @@ test('命令开关默认值和 1/0 解析正确', () => {
   const defaults = run('', {}, { useDefaults: true }).commands;
   assert.deepEqual(defaults, {
     help: true, bind: true, unbind: true, checkin: false,
-    usage: true, siteUsage: true, modelStatus: true,
+    usage: true, siteUsage: true, ranking: true, modelStatus: true,
   });
   const parsed = run('', Object.fromEntries(switches.map(({ flag }, index) => [flag, index % 2 ? '0' : '1']))).commands;
   switches.forEach(({ key }, index) => assert.equal(parsed[key], index % 2 === 0));
